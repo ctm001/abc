@@ -28,7 +28,7 @@ class LetterStack extends StatelessWidget {
     final stackHeight =
         letters.length * (StackDimensions.tileSize + StackDimensions.tileGap) +
         StackDimensions.stackHeadroom;
-    final threshold = availableHeight * 0.85;
+    final threshold = availableHeight * 0.98;
     final scale = stackHeight > threshold ? threshold / stackHeight : 1.0;
 
     return SizedBox(

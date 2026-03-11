@@ -126,32 +126,39 @@ class _LetterMatchingScreenState extends State<LetterMatchingScreen> {
   Widget _buildBody(BuildContext context) {
     return Stack(
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 8, bottom: 20),
-              child: LetterStack(
-                letters: _game.letterStack,
-                isCrumbling: _game.stackCrumbling,
-                showParachute: _game.showGoldCoin,
+            _Header(
+              game: _game,
+              onLevelChanged: _game.playLevel,
+              onBack: () {
+                if (context.canPop()) {
+                  context.pop();
+                  return;
+                }
+                context.replace(RouteNames.home);
+              },
+            ),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      left: 8,
+                      bottom: 8,
+                    ),
+                    child: LetterStack(
+                      letters: _game.letterStack,
+                      isCrumbling: _game.stackCrumbling,
+                      showParachute: _game.showGoldCoin,
+                    ),
+                  ),
+                  Expanded(child: _buildGameColumn()),
+                ],
               ),
             ),
-            Expanded(child: _buildGameColumn()),
           ],
-        ),
-        Positioned(
-          top: 0,
-          left: 0,
-          child: _BackButton(
-            onTap: () {
-              if (context.canPop()) {
-                context.pop();
-                return;
-              }
-              context.replace(RouteNames.home);
-            },
-          ),
         ),
         if (_game.showCelebration && !_game.showGoldCoin)
           CelebrationOverlay(onComplete: _game.nextRound),
@@ -162,39 +169,58 @@ class _LetterMatchingScreenState extends State<LetterMatchingScreen> {
   }
 
   Widget _buildGameColumn() {
-    return Column(
-      children: [
-        _Header(game: _game, onLevelChanged: _game.playLevel),
-        const Spacer(),
-        _PressableTargetDisplay(
-          onTap: _playTargetSound,
-          isQuestionMarkMode: _game.isQuestionMarkMode,
-          letter: _game.targetLetter,
-        ),
-        const Spacer(),
-        _buildChoices(),
-        const Spacer(),
-        const SizedBox(height: 40),
-      ],
-    );
-  }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final h = constraints.maxHeight;
+        final w = constraints.maxWidth;
 
-  Widget _buildChoices() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      child: Wrap(
-        spacing: GameDimensions.spacing,
-        runSpacing: GameDimensions.spacing,
-        alignment: WrapAlignment.center,
-        children: List.generate(_game.choices.length, (i) {
-          final letter = _game.choices[i];
-          return LetterButton(
-            letter: letter,
-            showShake: _game.showWrongAnswer && _game.wrongAnswerIndex == i,
-            onTap: () => _onLetterTapped(letter),
-          );
-        }),
-      ),
+        const gap = 12.0;
+        const padding = 12.0;
+
+        // Button size: fit 2 per row and 2 rows + target in height.
+        // height: target + 2*btn + 3*gap, target ≈ 1.755*btn
+        final btnFromH = (h - gap * 3) / 3.755;
+        final btnFromW = (w - padding * 2 - 8 - gap) / 2;
+        final btn = btnFromH
+            .clamp(0, btnFromW)
+            .clamp(0, GameDimensions.letterButtonSize)
+            .toDouble();
+        final target = (btn * 1.755)
+            .clamp(0, GameDimensions.targetSize)
+            .toDouble();
+
+        return Column(
+          children: [
+            const Spacer(),
+            _PressableTargetDisplay(
+              onTap: _playTargetSound,
+              isQuestionMarkMode: _game.isQuestionMarkMode,
+              letter: _game.targetLetter,
+              size: target,
+            ),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.only(left: padding, right: padding + 8),
+              child: Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                alignment: WrapAlignment.center,
+                children: List.generate(_game.choices.length, (i) {
+                  final letter = _game.choices[i];
+                  return LetterButton(
+                    letter: letter,
+                    size: btn,
+                    showShake: _game.showWrongAnswer &&
+                        _game.wrongAnswerIndex == i,
+                    onTap: () => _onLetterTapped(letter),
+                  );
+                }),
+              ),
+            ),
+            const Spacer(),
+          ],
+        );
+      },
     );
   }
 
@@ -214,71 +240,31 @@ class _LetterMatchingScreenState extends State<LetterMatchingScreen> {
 // -- Header --------------------------------------------------
 
 class _Header extends StatelessWidget {
-  const _Header({required this.game, required this.onLevelChanged});
+  const _Header({
+    required this.game,
+    required this.onLevelChanged,
+    required this.onBack,
+  });
 
   final FindLetterState game;
   final ValueChanged<int> onLevelChanged;
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(right: 16),
+      padding: const EdgeInsets.all(8),
       child: Row(
         children: [
-          if (game.highestLevel > 0)
+          _BackButton(onTap: onBack),
+          if (game.highestLevel > 0) ...[
+            const SizedBox(width: 12),
             _LevelChip(
               currentLevel: game.level,
               highestLevel: game.highestLevel,
               onLevelChanged: onLevelChanged,
             ),
-          const Spacer(),
-          _ScorePill(game: game),
-        ],
-      ),
-    );
-  }
-}
-
-// -- Score pill -----------------------------------------------
-
-class _ScorePill extends StatelessWidget {
-  const _ScorePill({required this.game});
-
-  final FindLetterState game;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.seed, AppColors.primaryLight],
-        ),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.textDark.withValues(alpha: 0.15)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.seed.withValues(alpha: 0.4),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.layers, color: Colors.white, size: 20),
-          const SizedBox(width: 8),
-          Text(
-            '${game.letterStack.length}/${game.alphabetLength}',
-            style: GoogleFonts.aBeeZee(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
+          ],
         ],
       ),
     );
@@ -323,7 +309,7 @@ class _LevelChip extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Text(
-              'Niv\u00E5 ${currentLevel + 1}',
+              'Nivå ${currentLevel + 1}',
               style: GoogleFonts.aBeeZee(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
@@ -380,11 +366,13 @@ class _PressableTargetDisplay extends StatefulWidget {
     required this.onTap,
     required this.isQuestionMarkMode,
     required this.letter,
+    this.size = GameDimensions.targetSize,
   });
 
   final VoidCallback onTap;
   final bool isQuestionMarkMode;
   final GameLetter letter;
+  final double size;
 
   @override
   State<_PressableTargetDisplay> createState() =>
@@ -425,8 +413,8 @@ class _PressableTargetDisplayState extends State<_PressableTargetDisplay>
       child: ScaleTransition(
         scale: _scale,
         child: Container(
-          width: GameDimensions.targetSize,
-          height: GameDimensions.targetSize,
+          width: widget.size,
+          height: widget.size,
           decoration: BoxDecoration(
             gradient: qm
                 ? LinearGradient(
@@ -461,11 +449,15 @@ class _PressableTargetDisplayState extends State<_PressableTargetDisplay>
           ),
           child: Center(
             child: qm
-                ? const Icon(Icons.volume_up, size: 64, color: Colors.white)
+                ? Icon(
+                    Icons.volume_up,
+                    size: widget.size * 0.41,
+                    color: Colors.white,
+                  )
                 : Text(
                     widget.letter.character,
                     style: GoogleFonts.aBeeZee(
-                      fontSize: GameDimensions.targetFontSize,
+                      fontSize: widget.size * 0.6,
                       fontWeight: FontWeight.w700,
                       color: widget.letter.color,
                     ),

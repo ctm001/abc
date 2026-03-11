@@ -12,12 +12,14 @@ class LetterButton extends StatefulWidget {
     required this.letter,
     required this.onTap,
     this.showShake = false,
+    this.size = GameDimensions.letterButtonSize,
     super.key,
   });
 
   final GameLetter letter;
   final VoidCallback onTap;
   final bool showShake;
+  final double size;
 
   @override
   State<LetterButton> createState() => _LetterButtonState();
@@ -72,72 +74,71 @@ class _LetterButtonState extends State<LetterButton>
   @override
   Widget build(BuildContext context) {
     final color = widget.letter.color;
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, child) {
-        final dx = widget.showShake
-            ? _shake.value * ((_ctrl.value * 10).toInt() % 2 == 0 ? 1 : -1)
-            : 0.0;
-
-        final blurRadius = 8.0 - _ctrl.value * 3;
-        final shadowOffset = 4.0 - _ctrl.value * 2;
-
-        return Transform.translate(
-          offset: Offset(dx, 0),
-          child: Transform.scale(
-            scale: _scale.value,
-            child: Container(
-              width: GameDimensions.letterButtonSize,
-              height: GameDimensions.letterButtonSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [color, Color.lerp(color, Colors.white, 0.15)!],
-                ),
-                border: Border.all(
-                  color: AppColors.textDark.withValues(alpha: 0.15),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.5),
-                    blurRadius: blurRadius,
-                    offset: Offset(0, shadowOffset),
-                  ),
-                ],
-              ),
-              child: Center(child: child),
-            ),
-          ),
-        );
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => _ctrl.forward(),
+      onTapUp: (_) {
+        _ctrl.reverse();
+        widget.onTap();
       },
-      child: GestureDetector(
-        onTapDown: (_) => _ctrl.forward(),
-        onTapUp: (_) {
-          _ctrl.reverse();
-          widget.onTap();
-        },
-        onTapCancel: () => _ctrl.reverse(),
-        child: SizedBox(
-          width: GameDimensions.letterButtonSize,
-          height: GameDimensions.letterButtonSize,
-          child: Center(
-            child: Text(
-              widget.letter.character,
-              style: GoogleFonts.aBeeZee(
-                fontSize: GameDimensions.letterFontSize,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                shadows: [
-                  const Shadow(
-                    color: Color(0x40000000),
-                    blurRadius: 4,
-                    offset: Offset(0, 2),
+      onTapCancel: () => _ctrl.reverse(),
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (context, child) {
+          final dx = widget.showShake
+              ? _shake.value *
+                    ((_ctrl.value * 10).toInt() % 2 == 0 ? 1 : -1)
+              : 0.0;
+
+          final blurRadius = 8.0 - _ctrl.value * 3;
+          final shadowOffset = 4.0 - _ctrl.value * 2;
+
+          return Transform.translate(
+            offset: Offset(dx, 0),
+            child: Transform.scale(
+              scale: _scale.value,
+              child: Container(
+                width: widget.size,
+                height: widget.size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      color,
+                      Color.lerp(color, Colors.white, 0.15)!,
+                    ],
                   ),
-                ],
+                  border: Border.all(
+                    color: AppColors.textDark.withValues(alpha: 0.15),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.5),
+                      blurRadius: blurRadius,
+                      offset: Offset(0, shadowOffset),
+                    ),
+                  ],
+                ),
+                child: Center(child: child),
               ),
             ),
+          );
+        },
+        child: Text(
+          widget.letter.character,
+          style: GoogleFonts.aBeeZee(
+            fontSize: widget.size * 0.42,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+            shadows: [
+              const Shadow(
+                color: Color(0x40000000),
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
         ),
       ),
