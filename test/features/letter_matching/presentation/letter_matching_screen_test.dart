@@ -59,6 +59,21 @@ void main() {
     expect(find.text('Nivå 3'), findsNothing);
   });
 
+  testWidgets('target display grows on roomy layouts', (tester) async {
+    final audioService = RecordingAudioService();
+    await tester.binding.setSurfaceSize(const Size(768, 1024));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await pumpLetterMatchingScreen(tester, audioService: audioService);
+
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('letter-matching-target-display')))
+          .width,
+      greaterThan(GameDimensions.targetSize),
+    );
+  });
+
   testWidgets(
     'completing the alphabet shows the gold coin and unlocks level 2',
     (tester) async {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -144,10 +145,7 @@ class _LetterMatchingScreenState extends State<LetterMatchingScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(
-                      left: 8,
-                      bottom: 8,
-                    ),
+                    padding: const EdgeInsets.only(left: 8, bottom: 8),
                     child: LetterStack(
                       letters: _game.letterStack,
                       isCrumbling: _game.stackCrumbling,
@@ -177,17 +175,24 @@ class _LetterMatchingScreenState extends State<LetterMatchingScreen> {
         const gap = 12.0;
         const padding = 12.0;
 
-        // Button size: fit 2 per row and 2 rows + target in height.
-        // height: target + 2*btn + 3*gap, target ≈ 1.755*btn
+        // Keep the 2x2 answer grid stable, but let the target card
+        // use extra room on larger layouts.
         final btnFromH = (h - gap * 3) / 3.755;
         final btnFromW = (w - padding * 2 - 8 - gap) / 2;
         final btn = btnFromH
             .clamp(0, btnFromW)
             .clamp(0, GameDimensions.letterButtonSize)
             .toDouble();
-        final target = (btn * 1.755)
-            .clamp(0, GameDimensions.targetSize)
-            .toDouble();
+        final baseTarget = btn * 1.755;
+        final targetFromH = (h - (btn * 2) - (gap * 6)).clamp(
+          baseTarget,
+          GameDimensions.targetExpandedSize,
+        );
+        final targetFromW = (w * 0.72).clamp(
+          baseTarget,
+          GameDimensions.targetExpandedSize,
+        );
+        final target = math.min(targetFromH, targetFromW).toDouble();
 
         return Column(
           children: [
@@ -210,8 +215,8 @@ class _LetterMatchingScreenState extends State<LetterMatchingScreen> {
                   return LetterButton(
                     letter: letter,
                     size: btn,
-                    showShake: _game.showWrongAnswer &&
-                        _game.wrongAnswerIndex == i,
+                    showShake:
+                        _game.showWrongAnswer && _game.wrongAnswerIndex == i,
                     onTap: () => _onLetterTapped(letter),
                   );
                 }),
@@ -413,6 +418,7 @@ class _PressableTargetDisplayState extends State<_PressableTargetDisplay>
       child: ScaleTransition(
         scale: _scale,
         child: Container(
+          key: const ValueKey('letter-matching-target-display'),
           width: widget.size,
           height: widget.size,
           decoration: BoxDecoration(

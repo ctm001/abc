@@ -28,6 +28,7 @@ abstract final class GameDimensions {
   static const letterButtonSize = 115.0;
   static const letterFontSize = 48.0;
   static const targetSize = 203.0;
+  static const targetExpandedSize = 300.0;
   static const targetFontSize = 94.0;
   static const borderRadius = 20.0;
   static const spacing = 20.0;

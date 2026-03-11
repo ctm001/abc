@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "no.skjerme.abc2"
+    namespace = "no.skjerme.leselek"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -21,7 +21,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "no.skjerme.abc2"
+        applicationId = "no.skjerme.leselek"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

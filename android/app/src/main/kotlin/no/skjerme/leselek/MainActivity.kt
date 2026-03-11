@@ -1,4 +1,4 @@
-package no.skjerme.abc2
+package no.skjerme.leselek
 
 import io.flutter.embedding.android.FlutterActivity
 
