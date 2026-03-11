@@ -1,0 +1,204 @@
+import 'package:abc2/core/audio/audio_service.dart';
+import 'package:abc2/data/repositories/letter_repository.dart';
+import 'package:abc2/features/letter_matching/find_letter_state.dart';
+import 'package:abc2/features/letter_matching/game_audio.dart';
+import 'package:abc2/features/letter_matching/game_colors.dart';
+import 'package:abc2/features/letter_matching/presentation/letter_matching_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
+  testWidgets('autoplay runs once when switching levels', (tester) async {
+    final audioService = RecordingAudioService();
+
+    await pumpLetterMatchingScreen(
+      tester,
+      audioService: audioService,
+      prefs: const {'highest_level': 1},
+    );
+
+    expect(audioService.playedAssets, hasLength(1));
+
+    await tester.tap(find.text('Nivå 2'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(audioService.playedAssets, hasLength(2));
+  });
+
+  testWidgets('level selector only cycles through the two supported levels', (
+    tester,
+  ) async {
+    final audioService = RecordingAudioService();
+
+    await pumpLetterMatchingScreen(
+      tester,
+      audioService: audioService,
+      prefs: const {'highest_level': 7},
+    );
+
+    expect(find.text('Nivå 2'), findsOneWidget);
+    expect(find.text('Nivå 3'), findsNothing);
+
+    await tester.tap(find.text('Nivå 2'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Nivå 1'), findsOneWidget);
+
+    await tester.tap(find.text('Nivå 1'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Nivå 2'), findsOneWidget);
+    expect(find.text('Nivå 3'), findsNothing);
+  });
+
+  testWidgets(
+    'completing the alphabet shows the gold coin and unlocks level 2',
+    (tester) async {
+      final audioService = RecordingAudioService();
+      final letterRepository = LetterRepository();
+      final gameState = FindLetterState(letterRepository: letterRepository);
+
+      await pumpLetterMatchingScreen(
+        tester,
+        audioService: audioService,
+        letterRepository: letterRepository,
+        gameState: gameState,
+      );
+
+      for (var i = 0; i < letterRepository.letters.length; i++) {
+        gameState.selectLetter(gameState.targetLetter);
+
+        if (i < letterRepository.letters.length - 1) {
+          gameState.nextRound();
+        }
+
+        await tester.pump();
+      }
+
+      expect(find.text('GRATULERER!'), findsOneWidget);
+      expect(find.text('Nivå 2'), findsNothing);
+
+      await tester.pump(GameTimings.goldCoinRevealDelay);
+      await tester.tapAt(tester.getCenter(find.byType(Scaffold)));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Nivå 2'), findsOneWidget);
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt('highest_level'), 1);
+
+      gameState.dispose();
+    },
+  );
+
+  testWidgets(
+    'gold coin celebration still plays if shown before initialization completes',
+    (tester) async {
+      final audioService = RecordingAudioService();
+      final gameAudio = RecordingGameAudio();
+
+      await pumpLetterMatchingScreen(
+        tester,
+        audioService: audioService,
+        gameState: InitGoldCoinState(letterRepository: LetterRepository()),
+        gameAudio: gameAudio,
+      );
+
+      expect(gameAudio.celebrationCalls, 1);
+      await tester.pump(GameTimings.goldCoinRevealDelay);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+}
+
+Future<void> pumpLetterMatchingScreen(
+  WidgetTester tester, {
+  required RecordingAudioService audioService,
+  LetterRepository? letterRepository,
+  FindLetterState? gameState,
+  GameAudio? gameAudio,
+  Map<String, Object> prefs = const {},
+}) async {
+  SharedPreferences.setMockInitialValues(prefs);
+
+  await tester.pumpWidget(
+    MaterialApp(
+      home: LetterMatchingScreen(
+        letterRepository: letterRepository ?? LetterRepository(),
+        audioService: audioService,
+        gameState: gameState,
+        gameAudio: gameAudio ?? SilentGameAudio(),
+      ),
+    ),
+  );
+  await tester.pump();
+  await tester.pump();
+}
+
+class RecordingAudioService extends AudioService {
+  final playedAssets = <String>[];
+
+  @override
+  Future<void> playLetterSound(String assetPath) async {
+    playedAssets.add(assetPath);
+  }
+
+  @override
+  Future<void> dispose() async {}
+}
+
+class SilentGameAudio extends GameAudio {
+  @override
+  Future<void> playPop() async {}
+
+  @override
+  Future<void> playSuccess() async {}
+
+  @override
+  Future<void> playCelebration() async {}
+
+  @override
+  Future<void> playWrong() async {}
+
+  @override
+  Future<void> dispose() async {}
+}
+
+class RecordingGameAudio extends SilentGameAudio {
+  int celebrationCalls = 0;
+
+  @override
+  Future<void> playCelebration() async {
+    celebrationCalls++;
+  }
+}
+
+class InitGoldCoinState extends FindLetterState {
+  InitGoldCoinState({required super.letterRepository});
+
+  bool _showGoldCoinOverride = false;
+
+  @override
+  bool get showGoldCoin => _showGoldCoinOverride;
+
+  @override
+  Future<void> loadProgress() async {
+    _showGoldCoinOverride = true;
+    notifyListeners();
+  }
+
+  @override
+  void resetGame() {
+    notifyListeners();
+  }
+}

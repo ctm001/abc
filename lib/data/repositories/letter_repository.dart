@@ -4,18 +4,17 @@ import '../../domain/models/norwegian_letter.dart';
 /// letters.
 class LetterRepository {
   /// All letters in alphabetical order (A – Å).
-  List<NorwegianLetter> get letters => List.unmodifiable(_letters);
+  List<NorwegianLetter> get letters => _allLetters;
 
   /// Returns the letter matching [character] (case-insensitive).
   NorwegianLetter getByCharacter(String character) =>
       _letters.firstWhere((l) => l.character == character.toUpperCase());
 
   /// All vowels: A, E, I, O, U, Y, Æ, Ø, Å.
-  List<NorwegianLetter> get vowels => letters.where((l) => l.isVowel).toList();
+  List<NorwegianLetter> get vowels => _vowelsList;
 
   /// All consonants.
-  List<NorwegianLetter> get consonants =>
-      letters.where((l) => !l.isVowel).toList();
+  List<NorwegianLetter> get consonants => _consonantsList;
 
   /// Returns a new list with the letters in random order.
   List<NorwegianLetter> getShuffled() => List.of(_letters)..shuffle();
@@ -25,6 +24,14 @@ class LetterRepository {
   // ----------------------------------------------------------
 
   static const _vowels = {'A', 'E', 'I', 'O', 'U', 'Y', 'Æ', 'Ø', 'Å'};
+
+  static final List<NorwegianLetter> _allLetters = List.unmodifiable(_letters);
+  static final List<NorwegianLetter> _vowelsList = List.unmodifiable(
+    _letters.where((l) => l.isVowel),
+  );
+  static final List<NorwegianLetter> _consonantsList = List.unmodifiable(
+    _letters.where((l) => !l.isVowel),
+  );
 
   static NorwegianLetter _letter(String char, String name, String fileName) =>
       NorwegianLetter(
