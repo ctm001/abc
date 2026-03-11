@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-/// A large, child-friendly card representing a learning
-/// module on the home screen.
-class ModuleCard extends StatelessWidget {
+import '../../../../core/theme/app_colors.dart';
+
+/// MathMarket-style module card with gradient, multi-layer
+/// shadows, and press animation.
+class ModuleCard extends StatefulWidget {
   const ModuleCard({
     required this.title,
     required this.description,
     required this.icon,
     required this.color,
+    required this.colorLight,
     required this.onTap,
     super.key,
   });
@@ -16,41 +20,83 @@ class ModuleCard extends StatelessWidget {
   final String description;
   final IconData icon;
   final Color color;
+  final Color colorLight;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  State<ModuleCard> createState() => _ModuleCardState();
+}
 
+class _ModuleCardState extends State<ModuleCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      duration: const Duration(milliseconds: 120),
+      vsync: this,
+    );
+    _scale = Tween<double>(
+      begin: 1,
+      end: 0.97,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      child: Card(
-        clipBehavior: Clip.antiAlias,
+      onTapDown: (_) => _ctrl.forward(),
+      onTapUp: (_) {
+        _ctrl.reverse();
+        widget.onTap();
+      },
+      onTapCancel: () => _ctrl.reverse(),
+      child: ScaleTransition(
+        scale: _scale,
         child: Container(
-          constraints: const BoxConstraints(minHeight: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [
-                color.withValues(alpha: 0.15),
-                color.withValues(alpha: 0.05),
-              ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
+              colors: [widget.color, widget.colorLight],
             ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppColors.textDark.withValues(alpha: 0.15),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: widget.color.withValues(alpha: 0.35),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Row(
             children: [
-              _Icon(icon: icon, color: color),
+              _Icon(icon: widget.icon),
               const SizedBox(width: 20),
               Expanded(
                 child: _Label(
-                  title: title,
-                  description: description,
-                  theme: theme,
+                  title: widget.title,
+                  description: widget.description,
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, color: color, size: 32),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Colors.white,
+                size: 32,
+              ),
             ],
           ),
         ),
@@ -60,10 +106,9 @@ class ModuleCard extends StatelessWidget {
 }
 
 class _Icon extends StatelessWidget {
-  const _Icon({required this.icon, required this.color});
+  const _Icon({required this.icon});
 
   final IconData icon;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -71,24 +116,19 @@ class _Icon extends StatelessWidget {
       width: 64,
       height: 64,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.2),
+        color: Colors.white.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Icon(icon, color: color, size: 32),
+      child: Icon(icon, color: Colors.white, size: 32),
     );
   }
 }
 
 class _Label extends StatelessWidget {
-  const _Label({
-    required this.title,
-    required this.description,
-    required this.theme,
-  });
+  const _Label({required this.title, required this.description});
 
   final String title;
   final String description;
-  final ThemeData theme;
 
   @override
   Widget build(BuildContext context) {
@@ -96,12 +136,20 @@ class _Label extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(title, style: theme.textTheme.titleLarge),
+        Text(
+          title,
+          style: GoogleFonts.aBeeZee(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
         const SizedBox(height: 4),
         Text(
           description,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+          style: GoogleFonts.aBeeZee(
+            fontSize: 14,
+            color: Colors.white.withValues(alpha: 0.85),
           ),
         ),
       ],

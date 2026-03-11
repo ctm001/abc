@@ -41,17 +41,6 @@ class LetterStack extends StatelessWidget {
           clipBehavior: Clip.none,
           alignment: Alignment.bottomCenter,
           children: [
-            Positioned(
-              bottom: 0,
-              child: Container(
-                width: StackDimensions.baseWidth,
-                height: StackDimensions.baseHeight,
-                decoration: BoxDecoration(
-                  color: Colors.brown.shade400,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
             for (var i = 0; i < letters.length; i++)
               StackedLetter(
                 letter: letters[i],

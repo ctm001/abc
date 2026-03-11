@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_colors.dart';
+
 /// Colour palette and sizes for the letter matching game.
 abstract final class GameColors {
-  static const primary = Color(0xFFFF6B6B);
-  static const secondary = Color(0xFFFFE66D);
+  static const primary = AppColors.seed;
+  static const primaryLight = AppColors.primaryLight;
+  static const secondary = AppColors.rewardGold;
   static const accent = Color(0xFF4ECDC4);
-  static const backgroundStart = Color(0xFFFFE5EC);
-  static const backgroundEnd = Color(0xFFE5F4FF);
-  static const letterText = Color(0xFF2C3E50);
-  static const correct = Color(0xFF6BCB77);
+  static const correct = AppColors.success;
+  static const letterText = AppColors.textDark;
 
   static const letterColors = [
     Color(0xFFFF6B6B),
@@ -17,18 +18,18 @@ abstract final class GameColors {
     Color(0xFF95E1D3),
     Color(0xFFF38181),
     Color(0xFFAA96DA),
-    Color(0xFFFCBAD3),
-    Color(0xFF6EB5FF),
+    Color(0xFF6EC6E8),
+    Color(0xFFFF9A9E),
   ];
 }
 
 /// Touch-target and font sizes for the game.
 abstract final class GameDimensions {
-  static const letterButtonSize = 100.0;
+  static const letterButtonSize = 115.0;
   static const letterFontSize = 48.0;
-  static const targetSize = 120.0;
-  static const targetFontSize = 72.0;
-  static const borderRadius = 24.0;
+  static const targetSize = 156.0;
+  static const targetFontSize = 94.0;
+  static const borderRadius = 20.0;
   static const spacing = 20.0;
 }
 

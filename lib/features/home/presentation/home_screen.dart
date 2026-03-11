@@ -1,38 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/presentation/animated_background.dart';
 import '../../../core/routing/route_names.dart';
 import '../../../core/theme/app_colors.dart';
 import 'widgets/module_card.dart';
 
-/// Hub screen that gives direct access to the three
-/// learning modules.
+/// Hub screen with animated sage-green background.
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final wide = constraints.maxWidth > 600;
-            return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              child: Column(
-                children: [
-                  _Title(theme: theme),
-                  const SizedBox(height: 40),
-                  if (wide)
-                    _WideLayout(context: context)
-                  else
-                    _NarrowLayout(context: context),
-                ],
-              ),
-            );
-          },
+      body: AnimatedBackground(
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth > 600;
+              return SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 48,
+                ),
+                child: Column(
+                  children: [
+                    const _Title(),
+                    const SizedBox(height: 12),
+                    const _Subtitle(),
+                    const SizedBox(height: 48),
+                    if (wide)
+                      _WideLayout(context: context)
+                    else
+                      _NarrowLayout(context: context),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -42,17 +48,32 @@ class HomeScreen extends StatelessWidget {
 // -- Title ---------------------------------------------------
 
 class _Title extends StatelessWidget {
-  const _Title({required this.theme});
-
-  final ThemeData theme;
+  const _Title();
 
   @override
   Widget build(BuildContext context) {
     return Text(
       'ABC',
-      style: theme.textTheme.displayLarge?.copyWith(
-        color: theme.colorScheme.primary,
-        letterSpacing: 8,
+      style: GoogleFonts.aBeeZee(
+        fontSize: 48,
+        fontWeight: FontWeight.w700,
+        color: AppColors.seed,
+        letterSpacing: -1,
+      ),
+    );
+  }
+}
+
+class _Subtitle extends StatelessWidget {
+  const _Subtitle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      'Lær bokstavene!',
+      style: GoogleFonts.aBeeZee(
+        fontSize: 18,
+        color: AppColors.textOlive,
       ),
     );
   }
@@ -67,8 +88,7 @@ class _NarrowLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext _) {
-    final cards = _buildCards(context);
-    return Column(spacing: 16, children: cards);
+    return Column(spacing: 16, children: _buildCards(context));
   }
 }
 
@@ -82,8 +102,8 @@ class _WideLayout extends StatelessWidget {
     final cards = _buildCards(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 12,
-      children: cards.map((card) => Expanded(child: card)).toList(),
+      spacing: 16,
+      children: cards.map((c) => Expanded(child: c)).toList(),
     );
   }
 }
@@ -96,6 +116,7 @@ List<ModuleCard> _buildCards(BuildContext context) => [
     description: 'Finn riktig bokstav',
     icon: Icons.extension_rounded,
     color: AppColors.letterMatching,
+    colorLight: AppColors.letterMatchingLight,
     onTap: () => context.go(RouteNames.letterMatching),
   ),
   ModuleCard(
@@ -103,6 +124,7 @@ List<ModuleCard> _buildCards(BuildContext context) => [
     description: 'Lær å skrive bokstaver',
     icon: Icons.draw_rounded,
     color: AppColors.fingerTracing,
+    colorLight: AppColors.fingerTracingLight,
     onTap: () => context.go(RouteNames.fingerTracing),
   ),
   ModuleCard(
@@ -110,6 +132,7 @@ List<ModuleCard> _buildCards(BuildContext context) => [
     description: 'Koble bokstaver til lyder',
     icon: Icons.volume_up_rounded,
     color: AppColors.alphabeticPrinciple,
+    colorLight: AppColors.alphabeticPrincipleLight,
     onTap: () => context.go(RouteNames.alphabeticPrinciple),
   ),
 ];

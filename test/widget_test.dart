@@ -13,7 +13,7 @@ void main() {
     );
 
     await tester.pumpWidget(App(router: router));
-    await tester.pumpAndSettle();
+    await tester.pump();
 
     expect(find.text('ABC'), findsOneWidget);
     expect(find.text('Bokstavkobling'), findsOneWidget);

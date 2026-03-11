@@ -15,8 +15,6 @@ class App extends StatelessWidget {
       title: 'ABC',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.system,
       routerConfig: router.router,
     );
   }

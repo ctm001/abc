@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../game_colors.dart';
 import '../../game_letter.dart';
 
-/// Animated letter choice button with tap and shake.
+/// Circle answer button with gradient, multi-layer shadow,
+/// and 150ms press animation.
 class LetterButton extends StatefulWidget {
   const LetterButton({
     required this.letter,
@@ -35,8 +38,8 @@ class _LetterButtonState extends State<LetterButton>
     );
     _scale = Tween<double>(
       begin: 1.0,
-      end: 0.9,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+      end: 0.94,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
     _shake = Tween<double>(
       begin: 0,
       end: 10,
@@ -68,15 +71,45 @@ class _LetterButtonState extends State<LetterButton>
 
   @override
   Widget build(BuildContext context) {
+    final color = widget.letter.color;
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (context, child) {
         final dx = widget.showShake
             ? _shake.value * ((_ctrl.value * 10).toInt() % 2 == 0 ? 1 : -1)
             : 0.0;
+
+        final blurRadius = 8.0 - _ctrl.value * 3;
+        final shadowOffset = 4.0 - _ctrl.value * 2;
+
         return Transform.translate(
           offset: Offset(dx, 0),
-          child: Transform.scale(scale: _scale.value, child: child),
+          child: Transform.scale(
+            scale: _scale.value,
+            child: Container(
+              width: GameDimensions.letterButtonSize,
+              height: GameDimensions.letterButtonSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [color, Color.lerp(color, Colors.white, 0.15)!],
+                ),
+                border: Border.all(
+                  color: AppColors.textDark.withValues(alpha: 0.15),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.5),
+                    blurRadius: blurRadius,
+                    offset: Offset(0, shadowOffset),
+                  ),
+                ],
+              ),
+              child: Center(child: child),
+            ),
+          ),
         );
       },
       child: GestureDetector(
@@ -86,27 +119,23 @@ class _LetterButtonState extends State<LetterButton>
           widget.onTap();
         },
         onTapCancel: () => _ctrl.reverse(),
-        child: Container(
+        child: SizedBox(
           width: GameDimensions.letterButtonSize,
           height: GameDimensions.letterButtonSize,
-          decoration: BoxDecoration(
-            color: widget.letter.color,
-            borderRadius: BorderRadius.circular(GameDimensions.borderRadius),
-            boxShadow: [
-              BoxShadow(
-                color: widget.letter.color.withValues(alpha: 0.4),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
           child: Center(
             child: Text(
               widget.letter.character,
-              style: const TextStyle(
+              style: GoogleFonts.aBeeZee(
                 fontSize: GameDimensions.letterFontSize,
-                fontWeight: FontWeight.bold,
-                color: GameColors.letterText,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                shadows: [
+                  const Shadow(
+                    color: Color(0x40000000),
+                    blurRadius: 4,
+                    offset: Offset(0, 2),
+                  ),
+                ],
               ),
             ),
           ),

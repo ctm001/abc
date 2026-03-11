@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../game_colors.dart';
 
@@ -90,19 +91,24 @@ class _GoldCoinOverlayState extends State<GoldCoinOverlay>
                   ),
                 ),
                 const SizedBox(height: 30),
-                const Text(
+                Text(
                   'GRATULERER!',
-                  style: TextStyle(
+                  style: GoogleFonts.aBeeZee(
                     fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFFFD700),
-                    shadows: [Shadow(color: Colors.black, blurRadius: 10)],
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFFFFD700),
+                    shadows: [
+                      const Shadow(color: Colors.black, blurRadius: 10),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 10),
-                const Text(
+                Text(
                   '29 bokstaver!',
-                  style: TextStyle(fontSize: 24, color: Colors.white),
+                  style: GoogleFonts.aBeeZee(
+                    fontSize: 24,
+                    color: Colors.white,
+                  ),
                 ),
               ],
             ),

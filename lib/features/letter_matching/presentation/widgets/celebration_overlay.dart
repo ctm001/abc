@@ -2,7 +2,9 @@ import 'dart:math';
 
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../game_colors.dart';
 
 /// Celebration overlay with randomised animations.
@@ -65,29 +67,53 @@ class _CelebrationOverlayState extends State<CelebrationOverlay>
                   vertical: 32,
                 ),
                 decoration: BoxDecoration(
-                  color: GameColors.correct,
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppColors.success, Color(0xFF3DBD6B)],
+                  ),
                   borderRadius: BorderRadius.circular(
                     GameDimensions.borderRadius,
                   ),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    width: 3,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: GameColors.correct.withValues(alpha: 0.4),
-                      blurRadius: 20,
+                      color: Colors.white.withValues(alpha: 0.6),
+                      blurRadius: 16,
+                      spreadRadius: 2,
+                    ),
+                    BoxShadow(
+                      color: AppColors.success.withValues(alpha: 0.5),
+                      blurRadius: 24,
                       offset: const Offset(0, 10),
                     ),
                   ],
                 ),
-                child: const Column(
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.star, size: 64, color: GameColors.secondary),
-                    SizedBox(height: 16),
+                    const Icon(
+                      Icons.star,
+                      size: 64,
+                      color: AppColors.rewardGold,
+                    ),
+                    const SizedBox(height: 16),
                     Text(
                       'Riktig!',
-                      style: TextStyle(
+                      style: GoogleFonts.aBeeZee(
                         fontSize: 36,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
                         color: Colors.white,
+                        shadows: [
+                          const Shadow(
+                            color: Color(0x40000000),
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -142,7 +168,7 @@ class _ConfettiState extends State<_Confetti> {
         confettiController: _ctrl,
         blastDirectionality: BlastDirectionality.explosive,
         shouldLoop: false,
-        colors: GameColors.letterColors,
+        colors: AppColors.confetti,
         numberOfParticles: 30,
         gravity: 0.3,
       ),
@@ -176,7 +202,7 @@ class _StarsBurstState extends State<_StarsBurst>
       _stars.add(
         _Particle(
           angle: (i * 30) * pi / 180,
-          color: GameColors.letterColors[i % GameColors.letterColors.length],
+          color: AppColors.confetti[i % AppColors.confetti.length],
           delay: rng.nextDouble() * 0.2,
         ),
       );
@@ -251,7 +277,7 @@ class _FloatingHeartsState extends State<_FloatingHearts>
             Colors.red,
             Colors.pink,
             Colors.pinkAccent,
-            GameColors.primary,
+            AppColors.confetti[0],
           ][rng.nextInt(4)],
         ),
       );
@@ -321,8 +347,7 @@ class _SparklesState extends State<_Sparkles>
       _sparks.add(
         _Particle(
           angle: rng.nextDouble() * 2 * pi,
-          color: GameColors
-              .letterColors[rng.nextInt(GameColors.letterColors.length)],
+          color: AppColors.confetti[rng.nextInt(AppColors.confetti.length)],
           delay: rng.nextDouble() * 0.5,
           x: rng.nextDouble(),
           y: rng.nextDouble(),

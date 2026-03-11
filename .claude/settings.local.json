@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(cd \"C:\\\\Users\\\\krest\\\\skjerme\\\\spill\\\\abc2\" && dart analyze && flutter test)",
+      "Bash(dart analyze:*)",
+      "Bash(cd C:/Users/krest/skjerme/spill/abc2 && flutter test 2>&1)"
+    ]
+  }
+}

@@ -1,7 +1,9 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../game_colors.dart';
 import '../../game_letter.dart';
 
@@ -103,27 +105,35 @@ class _LetterTile extends StatelessWidget {
       width: StackDimensions.tileSize,
       height: StackDimensions.tileSize,
       decoration: BoxDecoration(
-        color: letter.color,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.5),
-          width: 2,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [letter.color, Color.lerp(letter.color, Colors.white, 0.15)!],
         ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.textDark.withValues(alpha: 0.15)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
+            color: letter.color.withValues(alpha: 0.3),
             blurRadius: 4,
-            offset: const Offset(2, 2),
+            offset: const Offset(1, 2),
           ),
         ],
       ),
       child: Center(
         child: Text(
           letter.character,
-          style: const TextStyle(
+          style: GoogleFonts.aBeeZee(
             fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: GameColors.letterText,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+            shadows: [
+              const Shadow(
+                color: Color(0x40000000),
+                blurRadius: 2,
+                offset: Offset(0, 1),
+              ),
+            ],
           ),
         ),
       ),

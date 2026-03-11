@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/audio/audio_service.dart';
+import '../../../core/presentation/animated_background.dart';
 import '../../../core/routing/route_names.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/letter_repository.dart';
 import '../find_letter_state.dart';
 import '../game_audio.dart';
@@ -109,14 +112,7 @@ class _LetterMatchingScreenState extends State<LetterMatchingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [GameColors.backgroundStart, GameColors.backgroundEnd],
-          ),
-        ),
+      body: AnimatedBackground(
         child: SafeArea(
           child: ListenableBuilder(
             listenable: _game,
@@ -147,7 +143,15 @@ class _LetterMatchingScreenState extends State<LetterMatchingScreen> {
         Positioned(
           top: 0,
           left: 0,
-          child: _BackButton(onTap: () => context.go(RouteNames.home)),
+          child: _BackButton(
+            onTap: () {
+              if (context.canPop()) {
+                context.pop();
+                return;
+              }
+              context.replace(RouteNames.home);
+            },
+          ),
         ),
         if (_game.showCelebration && !_game.showGoldCoin)
           CelebrationOverlay(onComplete: _game.nextRound),
@@ -222,43 +226,57 @@ class _Header extends StatelessWidget {
       child: Row(
         children: [
           if (game.highestLevel > 0)
-            _LevelSelector(
+            _LevelChip(
               currentLevel: game.level,
               highestLevel: game.highestLevel,
               onLevelChanged: onLevelChanged,
             ),
           const Spacer(),
-          _StackCounter(game: game),
+          _ScorePill(game: game),
         ],
       ),
     );
   }
 }
 
-class _StackCounter extends StatelessWidget {
-  const _StackCounter({required this.game});
+// -- Score pill -----------------------------------------------
+
+class _ScorePill extends StatelessWidget {
+  const _ScorePill({required this.game});
 
   final FindLetterState game;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
-        color: GameColors.secondary,
-        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppColors.seed, AppColors.primaryLight],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.textDark.withValues(alpha: 0.15)),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.seed.withValues(alpha: 0.4),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.layers, color: GameColors.primary, size: 24),
+          const Icon(Icons.layers, color: Colors.white, size: 20),
           const SizedBox(width: 8),
           Text(
-            '${game.letterStack.length}'
-            '/${game.alphabetLength}',
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: GameColors.letterText,
+            '${game.letterStack.length}/${game.alphabetLength}',
+            style: GoogleFonts.aBeeZee(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
             ),
           ),
         ],
@@ -267,10 +285,10 @@ class _StackCounter extends StatelessWidget {
   }
 }
 
-// -- Level selector ------------------------------------------
+// -- Level chip ----------------------------------------------
 
-class _LevelSelector extends StatelessWidget {
-  const _LevelSelector({
+class _LevelChip extends StatelessWidget {
+  const _LevelChip({
     required this.currentLevel,
     required this.highestLevel,
     required this.onLevelChanged,
@@ -287,11 +305,13 @@ class _LevelSelector extends StatelessWidget {
         final next = (currentLevel + 1) % (highestLevel + 1);
         onLevelChanged(next);
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: currentLevel == 0 ? GameColors.accent : GameColors.primary,
-          borderRadius: BorderRadius.circular(20),
+          color: currentLevel == 0 ? AppColors.seed : AppColors.letterMatching,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.textDark.withValues(alpha: 0.15)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -299,14 +319,14 @@ class _LevelSelector extends StatelessWidget {
             Icon(
               currentLevel == 0 ? Icons.visibility : Icons.hearing,
               color: Colors.white,
-              size: 20,
+              size: 18,
             ),
             const SizedBox(width: 6),
             Text(
               'Niv\u00E5 ${currentLevel + 1}',
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+              style: GoogleFonts.aBeeZee(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
                 color: Colors.white,
               ),
             ),
@@ -332,20 +352,21 @@ class _BackButton extends StatelessWidget {
         width: 50,
         height: 50,
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
+          color: Colors.white.withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.textDark.withValues(alpha: 0.15)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
+              color: Colors.black.withValues(alpha: 0.10),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
           ],
         ),
         child: const Icon(
-          Icons.arrow_back,
-          color: GameColors.letterText,
-          size: 28,
+          Icons.arrow_back_rounded,
+          color: AppColors.textDark,
+          size: 24,
         ),
       ),
     );
@@ -407,16 +428,34 @@ class _PressableTargetDisplayState extends State<_PressableTargetDisplay>
           width: GameDimensions.targetSize,
           height: GameDimensions.targetSize,
           decoration: BoxDecoration(
-            color: qm ? widget.letter.color : Colors.white,
+            gradient: qm
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      widget.letter.color,
+                      widget.letter.color.withValues(alpha: 0.8),
+                    ],
+                  )
+                : null,
+            color: qm ? null : Colors.white,
             borderRadius: BorderRadius.circular(GameDimensions.borderRadius),
             border: qm
-                ? null
+                ? Border.all(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    width: 3,
+                  )
                 : Border.all(color: widget.letter.color, width: 4),
             boxShadow: [
               BoxShadow(
-                color: widget.letter.color.withValues(alpha: 0.4),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
+                color: Colors.white.withValues(alpha: 0.6),
+                blurRadius: 16,
+                spreadRadius: 2,
+              ),
+              BoxShadow(
+                color: widget.letter.color.withValues(alpha: 0.5),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
@@ -425,9 +464,9 @@ class _PressableTargetDisplayState extends State<_PressableTargetDisplay>
                 ? const Icon(Icons.volume_up, size: 64, color: Colors.white)
                 : Text(
                     widget.letter.character,
-                    style: TextStyle(
+                    style: GoogleFonts.aBeeZee(
                       fontSize: GameDimensions.targetFontSize,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w700,
                       color: widget.letter.color,
                     ),
                   ),
