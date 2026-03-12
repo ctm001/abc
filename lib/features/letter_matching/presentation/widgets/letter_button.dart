@@ -13,6 +13,7 @@ class LetterButton extends StatefulWidget {
     required this.onTap,
     this.showShake = false,
     this.size = GameDimensions.letterButtonSize,
+    this.colorOverride,
     super.key,
   });
 
@@ -20,6 +21,7 @@ class LetterButton extends StatefulWidget {
   final VoidCallback onTap;
   final bool showShake;
   final double size;
+  final Color? colorOverride;
 
   @override
   State<LetterButton> createState() => _LetterButtonState();
@@ -73,7 +75,7 @@ class _LetterButtonState extends State<LetterButton>
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.letter.color;
+    final color = widget.colorOverride ?? widget.letter.color;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapDown: (_) => _ctrl.forward(),
@@ -86,8 +88,7 @@ class _LetterButtonState extends State<LetterButton>
         animation: _ctrl,
         builder: (context, child) {
           final dx = widget.showShake
-              ? _shake.value *
-                    ((_ctrl.value * 10).toInt() % 2 == 0 ? 1 : -1)
+              ? _shake.value * ((_ctrl.value * 10).toInt() % 2 == 0 ? 1 : -1)
               : 0.0;
 
           final blurRadius = 8.0 - _ctrl.value * 3;
@@ -105,10 +106,7 @@ class _LetterButtonState extends State<LetterButton>
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      color,
-                      Color.lerp(color, Colors.white, 0.15)!,
-                    ],
+                    colors: [color, Color.lerp(color, Colors.white, 0.15)!],
                   ),
                   border: Border.all(
                     color: AppColors.textDark.withValues(alpha: 0.15),

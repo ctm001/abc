@@ -259,18 +259,20 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(8),
-      child: Row(
-        children: [
-          _BackButton(onTap: onBack),
-          if (game.highestLevel > 0) ...[
-            const SizedBox(width: 12),
-            _LevelChip(
-              currentLevel: game.level,
-              highestLevel: game.highestLevel,
-              onLevelChanged: onLevelChanged,
-            ),
+      child: SizedBox(
+        height: 50,
+        child: Row(
+          children: [
+            _BackButton(onTap: onBack),
+            const Spacer(),
+            if (game.highestLevel > 0)
+              _LevelChip(
+                currentLevel: game.level,
+                highestLevel: game.highestLevel,
+                onLevelChanged: onLevelChanged,
+              ),
           ],
-        ],
+        ),
       ),
     );
   }

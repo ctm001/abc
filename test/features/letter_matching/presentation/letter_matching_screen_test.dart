@@ -74,6 +74,24 @@ void main() {
     );
   });
 
+  testWidgets('level selector stays pinned to the top right', (tester) async {
+    final audioService = RecordingAudioService();
+    await tester.binding.setSurfaceSize(const Size(900, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await pumpLetterMatchingScreen(
+      tester,
+      audioService: audioService,
+      prefs: const {'highest_level': 1},
+    );
+
+    expect(
+      tester.getTopLeft(find.byIcon(Icons.arrow_back_rounded)).dx,
+      lessThan(40),
+    );
+    expect(tester.getTopRight(find.textContaining('Niv')).dx, greaterThan(850));
+  });
+
   testWidgets(
     'completing the alphabet shows the gold coin and unlocks level 2',
     (tester) async {

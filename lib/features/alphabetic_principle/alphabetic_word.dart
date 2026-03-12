@@ -20,11 +20,6 @@ const alphabeticPrincipleWords = <AlphabeticWord>[
     audioAssetPath: 'assets/audio/words/ape.mp3',
   ),
   AlphabeticWord(
-    word: 'and',
-    emoji: '🦆',
-    audioAssetPath: 'assets/audio/words/and.mp3',
-  ),
-  AlphabeticWord(
     word: 'arm',
     emoji: '💪',
     audioAssetPath: 'assets/audio/words/arm.mp3',
@@ -33,11 +28,6 @@ const alphabeticPrincipleWords = <AlphabeticWord>[
     word: 'ball',
     emoji: '⚽',
     audioAssetPath: 'assets/audio/words/ball.mp3',
-  ),
-  AlphabeticWord(
-    word: 'banan',
-    emoji: '🍌',
-    audioAssetPath: 'assets/audio/words/banan.mp3',
   ),
   AlphabeticWord(
     word: 'bil',
@@ -100,11 +90,6 @@ const alphabeticPrincipleWords = <AlphabeticWord>[
     audioAssetPath: 'assets/audio/words/hus.mp3',
   ),
   AlphabeticWord(
-    word: 'jakke',
-    emoji: '🧥',
-    audioAssetPath: 'assets/audio/words/jakke.mp3',
-  ),
-  AlphabeticWord(
     word: 'katt',
     emoji: '🐱',
     audioAssetPath: 'assets/audio/words/katt.mp3',
@@ -148,11 +133,6 @@ const alphabeticPrincipleWords = <AlphabeticWord>[
     word: 'sko',
     emoji: '👟',
     audioAssetPath: 'assets/audio/words/sko.mp3',
-  ),
-  AlphabeticWord(
-    word: 'slange',
-    emoji: '🐍',
-    audioAssetPath: 'assets/audio/words/slange.mp3',
   ),
   AlphabeticWord(
     word: 'smil',

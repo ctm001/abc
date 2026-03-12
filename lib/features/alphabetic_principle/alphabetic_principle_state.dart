@@ -40,6 +40,7 @@ class AlphabeticPrincipleState extends ChangeNotifier {
   int _level = 0;
   int _roundIndex = 0;
   int _audioCueToken = 0;
+  int _celebrationToken = 0;
   int _missingIndex = 0;
   bool _showSuccess = false;
   String? _wrongChoiceId;
@@ -49,6 +50,7 @@ class AlphabeticPrincipleState extends ChangeNotifier {
   int get level => _level;
   int get highestLevel => 2;
   int get audioCueToken => _audioCueToken;
+  int get celebrationToken => _celebrationToken;
   bool get showSuccess => _showSuccess;
   bool get isBuildWordLevel => _level == 2;
   int get missingIndex => _missingIndex;
@@ -89,6 +91,13 @@ class AlphabeticPrincipleState extends ChangeNotifier {
   void replayPrompt() {
     _audioCueToken++;
     notifyListeners();
+  }
+
+  void finishBuildWordCelebration(int token) {
+    if (!_showSuccess || !isBuildWordLevel || _celebrationToken != token) {
+      return;
+    }
+    nextRound();
   }
 
   bool selectChoice(AlphabeticChoice choice) {
@@ -239,8 +248,14 @@ class AlphabeticPrincipleState extends ChangeNotifier {
   }
 
   void _completeRound() {
+    _advanceTimer?.cancel();
     _showSuccess = true;
     _clearWrongChoice();
+    if (isBuildWordLevel) {
+      _celebrationToken++;
+      notifyListeners();
+      return;
+    }
     notifyListeners();
     _advanceTimer = Timer(autoAdvanceDelay, nextRound);
   }

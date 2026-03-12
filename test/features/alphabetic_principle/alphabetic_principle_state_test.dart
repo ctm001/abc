@@ -7,6 +7,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('AlphabeticPrincipleState', () {
+    test('default word list only contains words of four letters or fewer', () {
+      expect(
+        alphabeticPrincipleWords.where((word) => word.word.length > 4),
+        isEmpty,
+      );
+    });
+
     test('level 1 hides the first letter and offers four choices', () {
       final state = AlphabeticPrincipleState(
         letterRepository: LetterRepository(),
@@ -82,6 +89,57 @@ void main() {
         expect(state.showSuccess, isTrue);
         expect(state.slots, equals(['B', 'A', 'L', 'L']));
         expect(state.choices, isEmpty);
+      },
+    );
+
+    test(
+      'level 3 waits for the spelling celebration to finish before advancing',
+      () async {
+        final state = AlphabeticPrincipleState(
+          letterRepository: LetterRepository(),
+          words: const [
+            AlphabeticWord(
+              word: 'katt',
+              emoji: 'CAT',
+              audioAssetPath: 'assets/audio/words/katt.mp3',
+            ),
+            AlphabeticWord(
+              word: 'sol',
+              emoji: 'SUN',
+              audioAssetPath: 'assets/audio/words/sol.mp3',
+            ),
+          ],
+          random: Random(0),
+        );
+        addTearDown(state.dispose);
+
+        state.start();
+        state.playLevel(2);
+        final audioCueTokenBeforeCelebration = state.audioCueToken;
+
+        expect(state.selectChoice(_choiceFor(state, 'K')), isTrue);
+        expect(state.selectChoice(_choiceFor(state, 'A')), isTrue);
+        expect(state.selectChoice(_choiceFor(state, 'T')), isTrue);
+        expect(state.selectChoice(_choiceFor(state, 'T')), isTrue);
+
+        final celebrationToken = state.celebrationToken;
+        expect(state.showSuccess, isTrue);
+        expect(celebrationToken, 1);
+
+        await Future<void>.delayed(
+          AlphabeticPrincipleState.autoAdvanceDelay +
+              const Duration(milliseconds: 150),
+        );
+
+        expect(state.currentWord.word, 'katt');
+        expect(state.showSuccess, isTrue);
+        expect(state.audioCueToken, audioCueTokenBeforeCelebration);
+
+        state.finishBuildWordCelebration(celebrationToken);
+
+        expect(state.currentWord.word, 'sol');
+        expect(state.showSuccess, isFalse);
+        expect(state.audioCueToken, audioCueTokenBeforeCelebration + 1);
       },
     );
   });

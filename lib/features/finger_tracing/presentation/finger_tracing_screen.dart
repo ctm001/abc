@@ -360,7 +360,7 @@ class _TracingCard extends StatefulWidget {
 
 class _TracingCardState extends State<_TracingCard>
     with TickerProviderStateMixin {
-  static const _dotRewindOnStray = 5;
+  static const _dotRewindOnStray = 2;
 
   late final AnimationController _guideController;
   late final AnimationController _successController;

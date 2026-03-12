@@ -296,7 +296,7 @@ void main() {
   });
 
   testWidgets(
-    'stopping just outside the final dot rewinds by five guide dots',
+    'stopping just outside the final dot rewinds by two guide dots',
     (tester) async {
       final repository = LetterRepository();
       final c = repository.getByCharacter('C');
@@ -352,7 +352,7 @@ void main() {
       expect(
         gameState.coverage,
         closeTo(
-          (stroke.checkpoints.length - 6) / layout.checkpoints.length,
+          (stroke.checkpoints.length - 3) / layout.checkpoints.length,
           0.001,
         ),
       );
@@ -368,7 +368,7 @@ void main() {
     },
   );
 
-  testWidgets('straying off path late in a stroke rewinds by five guide dots', (
+  testWidgets('straying off path late in a stroke rewinds by two guide dots', (
     tester,
   ) async {
     final repository = LetterRepository();
@@ -421,7 +421,7 @@ void main() {
 
     expect(
       gameState.coverage,
-      closeTo((traversedDotCount - 5) / layout.checkpoints.length, 0.001),
+      closeTo((traversedDotCount - 2) / layout.checkpoints.length, 0.001),
     );
     expect(gameState.showSuccess, isFalse);
 
@@ -432,7 +432,7 @@ void main() {
 
     expect(
       gameState.coverage,
-      closeTo((traversedDotCount - 5) / layout.checkpoints.length, 0.001),
+      closeTo((traversedDotCount - 2) / layout.checkpoints.length, 0.001),
     );
 
     await gesture.up();
@@ -440,7 +440,7 @@ void main() {
 
     expect(
       gameState.coverage,
-      closeTo((traversedDotCount - 5) / layout.checkpoints.length, 0.001),
+      closeTo((traversedDotCount - 2) / layout.checkpoints.length, 0.001),
     );
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -448,7 +448,7 @@ void main() {
   });
 
   testWidgets(
-    'straying again within five dots does not erase earlier retained progress',
+    'straying again within two dots does not erase earlier retained progress',
     (tester) async {
       final repository = LetterRepository();
       final c = repository.getByCharacter('C');
@@ -492,7 +492,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 16));
 
-      const retainedDotCount = traversedDotCount - 5;
+      const retainedDotCount = traversedDotCount - 2;
       expect(
         gameState.coverage,
         closeTo(retainedDotCount / layout.checkpoints.length, 0.001),
@@ -528,7 +528,7 @@ void main() {
   );
 
   testWidgets(
-    'lifting finger mid stroke rewinds five guide dots and allows resume',
+    'lifting finger mid stroke rewinds two guide dots and allows resume',
     (tester) async {
       final repository = LetterRepository();
       final c = repository.getByCharacter('C');
@@ -571,15 +571,16 @@ void main() {
 
       expect(
         gameState.coverage,
-        closeTo((traversedDotCount - 5) / layout.checkpoints.length, 0.001),
+        closeTo((traversedDotCount - 2) / layout.checkpoints.length, 0.001),
       );
       expect(gameState.showSuccess, isFalse);
 
+      const retainedDotCount = traversedDotCount - 2;
       final resumeGesture = await tester.startGesture(
-        topLeft + stroke.checkpoints[4],
+        topLeft + stroke.checkpoints[retainedDotCount - 1],
       );
       await tester.pump();
-      for (final checkpoint in stroke.checkpoints.skip(5)) {
+      for (final checkpoint in stroke.checkpoints.skip(retainedDotCount)) {
         await resumeGesture.moveTo(topLeft + checkpoint);
         await tester.pump(const Duration(milliseconds: 16));
       }

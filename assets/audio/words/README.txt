@@ -2,10 +2,8 @@ Drop narration files for the alphabetic principle game in this folder.
 
 Expected file names:
 - ape.mp3
-- and.mp3
 - arm.mp3
 - ball.mp3
-- banan.mp3
 - bil.mp3
 - bok.mp3
 - buss.mp3
@@ -18,7 +16,6 @@ Expected file names:
 - hatt.mp3
 - hund.mp3
 - hus.mp3
-- jakke.mp3
 - katt.mp3
 - lam.mp3
 - lue.mp3
@@ -28,7 +25,6 @@ Expected file names:
 - sau.mp3
 - sekk.mp3
 - sko.mp3
-- slange.mp3
 - smil.mp3
 - sol.mp3
 - stol.mp3

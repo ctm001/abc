@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,6 +11,8 @@ import '../../../core/presentation/animated_background.dart';
 import '../../../core/routing/route_names.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/letter_repository.dart';
+import '../../letter_matching/game_letter.dart';
+import '../../letter_matching/presentation/widgets/letter_button.dart';
 import '../alphabetic_principle_audio.dart';
 import '../alphabetic_principle_state.dart';
 
@@ -33,10 +36,17 @@ class AlphabeticPrincipleScreen extends StatefulWidget {
 }
 
 class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
+  static const _celebrationLetterGap = Duration(milliseconds: 120);
+  static const _postWordPause = Duration(seconds: 2);
+
   late final AlphabeticPrincipleState _game;
   late final AlphabeticPrincipleAudio _audio;
+  late final ConfettiController _confettiController;
   late final bool _ownsGame;
   int _lastPromptToken = 0;
+  int _lastCelebrationToken = 0;
+  int _runningCelebrationToken = 0;
+  int? _activeCelebrationSlotIndex;
 
   @override
   void initState() {
@@ -46,11 +56,27 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
         widget.gameState ??
         AlphabeticPrincipleState(letterRepository: widget.letterRepository);
     _audio = widget.gameAudio ?? AlphabeticPrincipleAudio();
+    _confettiController = ConfettiController(
+      duration: const Duration(seconds: 1),
+    );
     _game.addListener(_handleGameChanged);
     _game.start();
   }
 
   void _handleGameChanged() {
+    if (_game.showSuccess && _game.isBuildWordLevel) {
+      if (_lastCelebrationToken != _game.celebrationToken) {
+        _lastCelebrationToken = _game.celebrationToken;
+        _runningCelebrationToken = _game.celebrationToken;
+        _confettiController.play();
+        unawaited(_audio.playCelebration());
+        unawaited(_runBuildWordCelebration(_game.celebrationToken));
+      }
+    } else {
+      _confettiController.stop();
+      _setActiveCelebrationSlotIndex(null);
+    }
+
     if (_lastPromptToken == _game.audioCueToken) {
       return;
     }
@@ -66,17 +92,87 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
     });
   }
 
+  bool _isCurrentBuildCelebration(int token) =>
+      mounted &&
+      _runningCelebrationToken == token &&
+      _game.showSuccess &&
+      _game.isBuildWordLevel &&
+      _game.celebrationToken == token;
+
+  Future<void> _runBuildWordCelebration(int token) async {
+    final word = _game.currentWord;
+    final letters = word.letters;
+
+    try {
+      for (var index = 0; index < letters.length; index++) {
+        if (!_isCurrentBuildCelebration(token)) {
+          return;
+        }
+
+        _setActiveCelebrationSlotIndex(index);
+        final letter = widget.letterRepository.getByCharacter(letters[index]);
+        await widget.audioService.playLetterSoundAndWait(letter.soundAssetPath);
+
+        if (!_isCurrentBuildCelebration(token)) {
+          return;
+        }
+
+        if (index == letters.length - 1) {
+          continue;
+        }
+
+        await Future<void>.delayed(_celebrationLetterGap);
+      }
+
+      if (!_isCurrentBuildCelebration(token)) {
+        return;
+      }
+
+      _setActiveCelebrationSlotIndex(null);
+      await widget.audioService.playLetterSoundAndWait(word.audioAssetPath);
+      if (!_isCurrentBuildCelebration(token)) {
+        return;
+      }
+
+      await Future<void>.delayed(_postWordPause);
+      if (!_isCurrentBuildCelebration(token)) {
+        return;
+      }
+
+      _game.finishBuildWordCelebration(token);
+    } finally {
+      if (mounted &&
+          _runningCelebrationToken == token &&
+          (!_game.showSuccess || !_game.isBuildWordLevel)) {
+        _setActiveCelebrationSlotIndex(null);
+      }
+    }
+  }
+
+  void _setActiveCelebrationSlotIndex(int? index) {
+    if (!mounted || _activeCelebrationSlotIndex == index) {
+      return;
+    }
+    setState(() {
+      _activeCelebrationSlotIndex = index;
+    });
+  }
+
   @override
   void dispose() {
     _game.removeListener(_handleGameChanged);
     if (_ownsGame) {
       _game.dispose();
     }
+    _confettiController.dispose();
     unawaited(_audio.dispose());
     super.dispose();
   }
 
   void _playPrompt() {
+    if (_game.showSuccess) {
+      return;
+    }
     unawaited(
       widget.audioService.playLetterSound(_game.currentWord.audioAssetPath),
     );
@@ -89,7 +185,9 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
 
     unawaited(_audio.playTap());
     if (_game.selectChoice(choice)) {
-      unawaited(_audio.playSuccess());
+      if (!(_game.showSuccess && _game.isBuildWordLevel)) {
+        unawaited(_audio.playSuccess());
+      }
     } else {
       unawaited(_audio.playWrong());
     }
@@ -112,25 +210,61 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
   Widget _buildBody(BuildContext context) {
     return Stack(
       children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 32,
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 760),
-                    child: _buildContent(context, constraints.maxWidth),
-                  ),
+        Column(
+          children: [
+            _Header(
+              currentLevel: _game.level,
+              highestLevel: _game.highestLevel,
+              onLevelChanged: _game.playLevel,
+              onBack: () {
+                if (context.canPop()) {
+                  context.pop();
+                  return;
+                }
+                context.replace(RouteNames.home);
+              },
+            ),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight - 32,
+                      ),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 760),
+                          child: _buildContent(context, constraints.maxWidth),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+        if (_game.showSuccess && _game.isBuildWordLevel)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConfettiWidget(
+                  key: const ValueKey('alphabetic-principle-confetti'),
+                  confettiController: _confettiController,
+                  blastDirectionality: BlastDirectionality.explosive,
+                  shouldLoop: false,
+                  colors: AppColors.confetti,
+                  numberOfParticles: 30,
+                  gravity: 0.3,
                 ),
               ),
-            );
-          },
-        ),
-        if (_game.showSuccess) const Positioned.fill(child: _SuccessOverlay()),
+            ),
+          ),
+        if (_game.showSuccess && !_game.isBuildWordLevel)
+          const Positioned.fill(child: _SuccessOverlay()),
       ],
     );
   }
@@ -138,26 +272,15 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
   Widget _buildContent(BuildContext context, double availableWidth) {
     final cardSize = math.min(availableWidth * 0.55, 290).clamp(210.0, 290.0);
     final slotSize = math.min(availableWidth / 5.4, 82).clamp(56.0, 82.0);
-    final choiceSize = _game.isBuildWordLevel
-        ? math.min(availableWidth / 5.3, 86).clamp(62.0, 86.0)
-        : math.min(availableWidth / 4.7, 92).clamp(70.0, 92.0);
+    final choiceSize = math.min(availableWidth / 4.7, 92).clamp(70.0, 92.0);
+    final choiceBankHeight = _choiceBankHeight(
+      availableWidth: availableWidth,
+      choiceSize: choiceSize.toDouble(),
+    );
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _Header(
-          currentLevel: _game.level,
-          highestLevel: _game.highestLevel,
-          onLevelChanged: _game.playLevel,
-          onBack: () {
-            if (context.canPop()) {
-              context.pop();
-              return;
-            }
-            context.replace(RouteNames.home);
-          },
-        ),
-        const SizedBox(height: 20),
         Text(
           _game.titleText,
           textAlign: TextAlign.center,
@@ -188,17 +311,44 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
           missingIndex: _game.missingIndex,
           activeSlotIndex: _game.activeSlotIndex,
           isBuildWordLevel: _game.isBuildWordLevel,
+          celebrationSlotIndex: _game.showSuccess && _game.isBuildWordLevel
+              ? _activeCelebrationSlotIndex
+              : null,
           slotSize: slotSize.toDouble(),
         ),
         const SizedBox(height: 28),
-        _ChoiceBank(
-          choices: _game.choices,
-          wrongChoiceId: _game.wrongChoiceId,
-          onChoiceTapped: _onChoiceTapped,
-          choiceSize: choiceSize.toDouble(),
+        SizedBox(
+          height: choiceBankHeight,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: _ChoiceBank(
+              choices: _game.choices,
+              wrongChoiceId: _game.wrongChoiceId,
+              onChoiceTapped: _onChoiceTapped,
+              choiceSize: choiceSize.toDouble(),
+            ),
+          ),
         ),
       ],
     );
+  }
+
+  double _choiceBankHeight({
+    required double availableWidth,
+    required double choiceSize,
+  }) {
+    const spacing = 16.0;
+    const maxContentWidth = 760.0;
+    final totalChoices = _game.isBuildWordLevel
+        ? _game.currentWord.letters.length
+        : 4;
+    final contentWidth = math.min(availableWidth, maxContentWidth);
+    final columns = math.max(
+      1,
+      ((contentWidth + spacing) / (choiceSize + spacing)).floor(),
+    );
+    final rows = (totalChoices / columns).ceil();
+    return (rows * choiceSize) + ((rows - 1) * spacing);
   }
 }
 
@@ -217,16 +367,22 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _BackButton(onTap: onBack),
-        const Spacer(),
-        _LevelChip(
-          currentLevel: currentLevel,
-          highestLevel: highestLevel,
-          onLevelChanged: onLevelChanged,
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: SizedBox(
+        height: 50,
+        child: Row(
+          children: [
+            _BackButton(onTap: onBack),
+            const Spacer(),
+            _LevelChip(
+              currentLevel: currentLevel,
+              highestLevel: highestLevel,
+              onLevelChanged: onLevelChanged,
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -392,6 +548,7 @@ class _WordSlots extends StatelessWidget {
     required this.missingIndex,
     required this.activeSlotIndex,
     required this.isBuildWordLevel,
+    required this.celebrationSlotIndex,
     required this.slotSize,
   });
 
@@ -399,6 +556,7 @@ class _WordSlots extends StatelessWidget {
   final int missingIndex;
   final int activeSlotIndex;
   final bool isBuildWordLevel;
+  final int? celebrationSlotIndex;
   final double slotSize;
 
   @override
@@ -410,50 +568,146 @@ class _WordSlots extends StatelessWidget {
       children: List<Widget>.generate(slots.length, (index) {
         final letter = slots[index];
         final isActive = isBuildWordLevel && index == activeSlotIndex;
+        final isCelebrating = celebrationSlotIndex == index;
         final showQuestionMark =
-            !isBuildWordLevel && index == missingIndex && letter == null;
+            letter == null && (isBuildWordLevel || index == missingIndex);
 
-        return AnimatedContainer(
-          key: ValueKey('alphabetic-slot-$index'),
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          width: slotSize,
-          height: slotSize,
-          decoration: BoxDecoration(
-            color: letter == null
-                ? Colors.white.withValues(alpha: 0.48)
-                : Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: isActive
-                  ? AppColors.rewardGold
-                  : letter == null
-                  ? AppColors.textDark.withValues(alpha: 0.18)
-                  : AppColors.textDark.withValues(alpha: 0.12),
-              width: isActive ? 3 : 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+        return _PulsingWordSlot(
+          index: index,
+          isPulsing: isCelebrating,
+          child: AnimatedContainer(
+            key: ValueKey('alphabetic-slot-$index'),
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            width: slotSize,
+            height: slotSize,
+            decoration: BoxDecoration(
+              color: letter == null
+                  ? Colors.white.withValues(alpha: 0.48)
+                  : Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: isCelebrating
+                    ? AppColors.alphabeticPrincipleDark
+                    : isActive
+                    ? AppColors.rewardGold
+                    : letter == null
+                    ? AppColors.textDark.withValues(alpha: 0.18)
+                    : AppColors.textDark.withValues(alpha: 0.12),
+                width: isCelebrating
+                    ? 3
+                    : isActive
+                    ? 3
+                    : 2,
               ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              letter ?? (showQuestionMark ? '?' : ''),
-              style: GoogleFonts.aBeeZee(
-                fontSize: slotSize * 0.52,
-                fontWeight: FontWeight.w700,
-                color: letter == null
-                    ? AppColors.textDark.withValues(alpha: 0.35)
-                    : AppColors.textDark,
+              boxShadow: [
+                BoxShadow(
+                  color: isCelebrating
+                      ? AppColors.alphabeticPrinciple.withValues(alpha: 0.28)
+                      : Colors.black.withValues(alpha: 0.05),
+                  blurRadius: isCelebrating ? 18 : 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                letter ?? (showQuestionMark ? '?' : ''),
+                style: GoogleFonts.aBeeZee(
+                  fontSize: slotSize * 0.52,
+                  fontWeight: FontWeight.w700,
+                  color: letter == null
+                      ? AppColors.textDark.withValues(alpha: 0.35)
+                      : AppColors.textDark,
+                ),
               ),
             ),
           ),
         );
       }),
+    );
+  }
+}
+
+class _PulsingWordSlot extends StatefulWidget {
+  const _PulsingWordSlot({
+    required this.index,
+    required this.isPulsing,
+    required this.child,
+  });
+
+  final int index;
+  final bool isPulsing;
+  final Widget child;
+
+  @override
+  State<_PulsingWordSlot> createState() => _PulsingWordSlotState();
+}
+
+class _PulsingWordSlotState extends State<_PulsingWordSlot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    );
+    _scale = Tween<double>(
+      begin: 1,
+      end: 1.08,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    if (widget.isPulsing) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _PulsingWordSlot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isPulsing == oldWidget.isPulsing) {
+      return;
+    }
+
+    if (widget.isPulsing) {
+      _controller.repeat(reverse: true);
+      return;
+    }
+
+    _controller
+      ..stop()
+      ..reset();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          if (widget.isPulsing)
+            SizedBox.shrink(
+              key: ValueKey('alphabetic-slot-pulsing-${widget.index}'),
+            ),
+          widget.child,
+        ],
+      ),
+      builder: (context, child) {
+        return Transform.scale(
+          scale: widget.isPulsing ? _scale.value : 1,
+          child: child,
+        );
+      },
     );
   }
 }
@@ -491,7 +745,7 @@ class _ChoiceBank extends StatelessWidget {
   }
 }
 
-class _ChoiceButton extends StatefulWidget {
+class _ChoiceButton extends StatelessWidget {
   const _ChoiceButton({
     required this.choice,
     required this.size,
@@ -505,65 +759,13 @@ class _ChoiceButton extends StatefulWidget {
   final VoidCallback onTap;
 
   @override
-  State<_ChoiceButton> createState() => _ChoiceButtonState();
-}
-
-class _ChoiceButtonState extends State<_ChoiceButton> {
-  bool _pressed = false;
-
-  void _setPressed(bool value) {
-    if (_pressed == value) {
-      return;
-    }
-    setState(() {
-      _pressed = value;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final baseColor = AppColors
-        .confetti[widget.choice.paletteIndex % AppColors.confetti.length];
-    final color = widget.showWrong ? AppColors.danger : baseColor;
-
-    return AnimatedScale(
-      scale: _pressed ? 0.92 : 1,
-      duration: const Duration(milliseconds: 110),
-      curve: Curves.easeOutCubic,
-      child: GestureDetector(
-        key: ValueKey('alphabetic-choice-${widget.choice.id}'),
-        onTap: widget.onTap,
-        onTapDown: (_) => _setPressed(true),
-        onTapUp: (_) => _setPressed(false),
-        onTapCancel: () => _setPressed(false),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          curve: Curves.easeOutCubic,
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.28),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              widget.choice.letter,
-              style: GoogleFonts.aBeeZee(
-                fontSize: widget.size * 0.42,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ),
-      ),
+    return LetterButton(
+      key: ValueKey('alphabetic-choice-${choice.id}'),
+      letter: GameLetter(character: choice.letter, index: choice.paletteIndex),
+      onTap: onTap,
+      size: size,
+      colorOverride: showWrong ? AppColors.danger : null,
     );
   }
 }

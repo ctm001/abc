@@ -1,0 +1,8 @@
+{
+  "appId": "69b1eba858eb50b9d11897b7",
+  "appName": "Leselek",
+  "defaultBranch": "main",
+  "workflowAliases": {
+    "default": "69b1eba858eb50b9d11897b6"
+  }
+}
