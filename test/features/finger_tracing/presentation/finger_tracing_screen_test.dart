@@ -83,6 +83,43 @@ void main() {
     gameState.dispose();
   });
 
+  testWidgets('tracing board stays square on landscape layouts', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final repository = LetterRepository();
+    final a = repository.getByCharacter('A');
+    final audioService = RecordingAudioService();
+    final gameState = FingerTracingState(
+      letterRepository: repository,
+      letterSequence: [a],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FingerTracingScreen(
+          letterRepository: repository,
+          audioService: audioService,
+          gameState: gameState,
+          gameAudio: RecordingFingerTracingAudio(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final boardSize = tester.getSize(
+      find.byKey(const ValueKey('finger-tracing-board')),
+    );
+    expect(boardSize.width, closeTo(boardSize.height, 0.001));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    gameState.dispose();
+  });
+
   testWidgets('scribbling off path does not complete the letter', (
     tester,
   ) async {
@@ -409,6 +446,86 @@ void main() {
     await tester.pump();
     gameState.dispose();
   });
+
+  testWidgets(
+    'straying again within five dots does not erase earlier retained progress',
+    (tester) async {
+      final repository = LetterRepository();
+      final c = repository.getByCharacter('C');
+      final audioService = RecordingAudioService();
+      final gameState = FingerTracingState(
+        letterRepository: repository,
+        letterSequence: [c],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: FingerTracingScreen(
+            letterRepository: repository,
+            audioService: audioService,
+            gameState: gameState,
+            gameAudio: RecordingFingerTracingAudio(),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final board = find.byKey(const ValueKey('finger-tracing-board'));
+      final topLeft = tester.getTopLeft(board);
+      final size = tester.getSize(board);
+      final layout = FingerTracingGuides.layoutFor('C', size);
+      final stroke = layout.strokes.single;
+
+      expect(stroke.checkpoints.length, greaterThan(10));
+
+      final gesture = await tester.startGesture(topLeft + stroke.startDot);
+      await tester.pump();
+      const traversedDotCount = 10;
+      for (final checkpoint in stroke.checkpoints.skip(1).take(9)) {
+        await gesture.moveTo(topLeft + checkpoint);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+
+      await gesture.moveTo(
+        topLeft + Offset(size.width * 0.10, size.height * 0.12),
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+
+      const retainedDotCount = traversedDotCount - 5;
+      expect(
+        gameState.coverage,
+        closeTo(retainedDotCount / layout.checkpoints.length, 0.001),
+      );
+
+      await gesture.up();
+      await tester.pump();
+
+      final resumeGesture = await tester.startGesture(
+        topLeft + stroke.checkpoints[retainedDotCount - 1],
+      );
+      await tester.pump();
+      for (final checkpoint
+          in stroke.checkpoints.skip(retainedDotCount).take(2)) {
+        await resumeGesture.moveTo(topLeft + checkpoint);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+
+      await resumeGesture.moveTo(
+        topLeft + Offset(size.width * 0.90, size.height * 0.10),
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+
+      expect(
+        gameState.coverage,
+        closeTo(retainedDotCount / layout.checkpoints.length, 0.001),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      gameState.dispose();
+    },
+  );
 
   testWidgets(
     'lifting finger mid stroke rewinds five guide dots and allows resume',

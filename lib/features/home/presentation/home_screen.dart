@@ -148,7 +148,7 @@ class _Title extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      'ABC',
+      'Leselek',
       style: GoogleFonts.aBeeZee(
         fontSize: 67,
         fontWeight: FontWeight.w700,

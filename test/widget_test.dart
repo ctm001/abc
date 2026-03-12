@@ -16,7 +16,7 @@ void main() {
     await tester.pumpWidget(App(router: router));
     await tester.pump();
 
-    expect(find.text('ABC'), findsOneWidget);
+    expect(find.text('Leselek'), findsOneWidget);
     expect(find.text('A'), findsOneWidget);
     expect(find.text('B'), findsOneWidget);
     expect(find.byIcon(Icons.draw_rounded), findsOneWidget);
@@ -42,7 +42,7 @@ void main() {
     await tester.pumpWidget(App(router: router));
     await tester.pump();
 
-    expect(find.text('ABC'), findsOneWidget);
+    expect(find.text('Leselek'), findsOneWidget);
     expect(find.byType(SingleChildScrollView), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

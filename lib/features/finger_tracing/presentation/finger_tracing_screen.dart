@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -123,24 +124,26 @@ class _FingerTracingScreenState extends State<FingerTracingScreen> {
                       child: Center(
                         child: LayoutBuilder(
                           builder: (context, constraints) {
+                            final boardDimension = math.min(
+                              constraints.maxWidth,
+                              constraints.maxHeight,
+                            );
                             return SizedBox(
-                              width: constraints.maxWidth,
-                              child: AspectRatio(
-                                aspectRatio: _tracingCardAspectRatio,
-                                child: _TracingCard(
-                                  key: ValueKey(_game.roundId),
-                                  letter: _game.currentLetter,
-                                  enabled: _game.canTrace,
-                                  showSuccess: _game.showSuccess,
-                                  onReplay: _game.replayPrompt,
-                                  onCoverageChanged:
-                                      (coverage, reachedFinalCheckpoint) =>
-                                          _game.updateCoverage(
-                                            coverage,
-                                            reachedFinalCheckpoint:
-                                                reachedFinalCheckpoint,
-                                          ),
-                                ),
+                              width: boardDimension,
+                              height: boardDimension,
+                              child: _TracingCard(
+                                key: ValueKey(_game.roundId),
+                                letter: _game.currentLetter,
+                                enabled: _game.canTrace,
+                                showSuccess: _game.showSuccess,
+                                onReplay: _game.replayPrompt,
+                                onCoverageChanged:
+                                    (coverage, reachedFinalCheckpoint) =>
+                                        _game.updateCoverage(
+                                          coverage,
+                                          reachedFinalCheckpoint:
+                                              reachedFinalCheckpoint,
+                                        ),
                               ),
                             );
                           },
@@ -372,6 +375,7 @@ class _TracingCardState extends State<_TracingCard>
   int _nextStrokeIndex = 0;
   int _committedCheckpointCount = 0;
   int _activeCheckpointCount = 0;
+  int _rewindCheckpointFloor = 0;
 
   @override
   void initState() {
@@ -680,6 +684,7 @@ class _TracingCardState extends State<_TracingCard>
     _activeStroke = null;
     _activeCheckpointPathIndices.clear();
     _activeCheckpointCount = 0;
+    _rewindCheckpointFloor = 0;
     _restartGuideCue();
     _updateCoverage(layout);
   }
@@ -694,9 +699,10 @@ class _TracingCardState extends State<_TracingCard>
     }
 
     _gestureRewound = true;
-    final retainedCheckpointCount = _activeCheckpointCount > _dotRewindOnStray
-        ? _activeCheckpointCount - _dotRewindOnStray
-        : 0;
+    final retainedCheckpointCount = (_activeCheckpointCount - _dotRewindOnStray)
+        .clamp(_rewindCheckpointFloor, _activeCheckpointCount)
+        .toInt();
+    _rewindCheckpointFloor = retainedCheckpointCount;
 
     if (retainedCheckpointCount == 0) {
       _activeStroke = null;
@@ -726,6 +732,7 @@ class _TracingCardState extends State<_TracingCard>
     _committedCheckpointCount = 0;
     _activeCheckpointPathIndices.clear();
     _activeCheckpointCount = 0;
+    _rewindCheckpointFloor = 0;
     _restartGuideCue();
   }
 
