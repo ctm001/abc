@@ -22,6 +22,17 @@ void main() {
     );
   });
 
+  test('I guide width stays comparable to other single-stroke letters', () {
+    final iLayout = FingerTracingGuides.layoutFor('I', const Size(520, 520));
+    final jLayout = FingerTracingGuides.layoutFor('J', const Size(520, 520));
+
+    expect(iLayout.guideRect.width, greaterThanOrEqualTo(300));
+    expect(
+      iLayout.guideStrokeWidth,
+      greaterThanOrEqualTo(jLayout.guideStrokeWidth),
+    );
+  });
+
   test('Å guide keeps a smaller top ring inside the drawing area', () {
     final layout = FingerTracingGuides.layoutFor('Å', const Size(520, 520));
     final ringRect = layout.strokePaths.first.getBounds();
