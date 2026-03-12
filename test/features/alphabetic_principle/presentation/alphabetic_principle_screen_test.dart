@@ -187,6 +187,54 @@ void main() {
     );
   });
 
+  testWidgets('level 3 shrinks buttons to keep them on one row', (
+    tester,
+  ) async {
+    final gameState = AlphabeticPrincipleState(
+      letterRepository: LetterRepository(),
+      words: const [
+        AlphabeticWord(
+          word: 'katt',
+          emoji: 'CAT',
+          audioAssetPath: 'assets/audio/words/katt.mp3',
+        ),
+      ],
+      random: Random(0),
+    );
+    addTearDown(gameState.dispose);
+    await tester.binding.setSurfaceSize(const Size(320, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await pumpAlphabeticPrincipleScreen(
+      tester,
+      audioService: RecordingAudioService(),
+      gameState: gameState,
+    );
+
+    final levelOneButtonSize = tester.getSize(find.byType(LetterButton).first);
+
+    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.pump();
+    await tester.pump();
+
+    final buttons = find.byType(LetterButton);
+    final levelThreeButtonSize = tester.getSize(buttons.first);
+    final firstButtonTop = tester.getTopLeft(buttons.first).dy;
+
+    expect(levelThreeButtonSize.width, lessThan(levelOneButtonSize.width));
+    expect(levelThreeButtonSize.height, lessThan(levelOneButtonSize.height));
+
+    for (var index = 1; index < 4; index++) {
+      expect(
+        tester.getTopLeft(buttons.at(index)).dy,
+        closeTo(firstButtonTop, 0.01),
+      );
+    }
+  });
+
   testWidgets('level 3 shows question marks in empty slots', (tester) async {
     final gameState = AlphabeticPrincipleState(
       letterRepository: LetterRepository(),
@@ -407,20 +455,26 @@ void main() {
         letterRepository: repository,
       );
       await _switchToBuildWordLevel(tester, gameState, audioService);
+      final initialWord = gameState.currentWord.word;
+      final initialLetterCount = gameState.currentWord.letters.length;
+      final nextWord = [
+        'katt',
+        'sol',
+      ].firstWhere((word) => word != initialWord);
 
       _completeCurrentBuildWord(gameState);
       await tester.pump();
 
-      audioService.completeNextAwaitedPlayback();
-      await tester.pump(_celebrationGap);
-      audioService.completeNextAwaitedPlayback();
-      await tester.pump(_celebrationGap);
-      audioService.completeNextAwaitedPlayback();
-      await tester.pump(_celebrationGap);
-      audioService.completeNextAwaitedPlayback();
-      await tester.pump();
+      for (var index = 0; index < initialLetterCount; index++) {
+        audioService.completeNextAwaitedPlayback();
+        if (index == initialLetterCount - 1) {
+          await tester.pump();
+        } else {
+          await tester.pump(_celebrationGap);
+        }
+      }
 
-      expect(gameState.currentWord.word, 'katt');
+      expect(gameState.currentWord.word, initialWord);
       expect(gameState.showSuccess, isTrue);
       expect(audioService.pendingAwaitCount, 1);
 
@@ -428,13 +482,13 @@ void main() {
       await tester.pump();
       await tester.pump(_postWordPause - const Duration(milliseconds: 1));
 
-      expect(gameState.currentWord.word, 'katt');
+      expect(gameState.currentWord.word, initialWord);
       expect(gameState.showSuccess, isTrue);
 
       await tester.pump(const Duration(milliseconds: 1));
       await tester.pump();
 
-      expect(gameState.currentWord.word, 'sol');
+      expect(gameState.currentWord.word, nextWord);
       expect(gameState.showSuccess, isFalse);
       expect(gameAudio.celebrationCalls, 1);
     },
@@ -469,6 +523,8 @@ void main() {
       gameState: gameState,
       letterRepository: repository,
     );
+    final initialWord = gameState.currentWord.word;
+    final nextWord = ['sol', 'ape'].firstWhere((word) => word != initialWord);
 
     audioService.playedAssets.clear();
     final correctChoice = gameState.choices.firstWhere(
@@ -483,9 +539,9 @@ void main() {
     await tester.pump(AlphabeticPrincipleState.autoAdvanceDelay);
     await tester.pump();
 
-    expect(gameState.currentWord.word, 'ape');
+    expect(gameState.currentWord.word, nextWord);
     expect(gameState.showSuccess, isFalse);
-    expect(audioService.playedAssets, ['assets/audio/words/ape.mp3']);
+    expect(audioService.playedAssets, ['assets/audio/words/$nextWord.mp3']);
   });
 }
 

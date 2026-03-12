@@ -58,6 +58,47 @@ void main() {
       expect(state.choices, hasLength(4));
     });
 
+    test('level 1 shuffles words before repeating them', () {
+      final state = AlphabeticPrincipleState(
+        letterRepository: LetterRepository(),
+        words: const [
+          AlphabeticWord(
+            word: 'ape',
+            emoji: 'APE',
+            audioAssetPath: 'assets/audio/words/ape.mp3',
+          ),
+          AlphabeticWord(
+            word: 'bok',
+            emoji: 'BOOK',
+            audioAssetPath: 'assets/audio/words/bok.mp3',
+          ),
+          AlphabeticWord(
+            word: 'sol',
+            emoji: 'SUN',
+            audioAssetPath: 'assets/audio/words/sol.mp3',
+          ),
+          AlphabeticWord(
+            word: 'lam',
+            emoji: 'LAMB',
+            audioAssetPath: 'assets/audio/words/lam.mp3',
+          ),
+        ],
+        random: Random(0),
+      );
+      addTearDown(state.dispose);
+
+      state.start();
+
+      final seenWords = <String>[];
+      for (var round = 0; round < 4; round++) {
+        seenWords.add(state.currentWord.word);
+        state.nextRound();
+      }
+
+      expect(seenWords.toSet(), {'ape', 'bok', 'sol', 'lam'});
+      expect(seenWords, isNot(equals(['ape', 'bok', 'sol', 'lam'])));
+    });
+
     test(
       'level 3 uses one choice per letter and completes the word in order',
       () {
@@ -92,6 +133,49 @@ void main() {
       },
     );
 
+    test('level 3 shuffles words before repeating them', () {
+      final state = AlphabeticPrincipleState(
+        letterRepository: LetterRepository(),
+        words: const [
+          AlphabeticWord(
+            word: 'ape',
+            emoji: 'APE',
+            audioAssetPath: 'assets/audio/words/ape.mp3',
+          ),
+          AlphabeticWord(
+            word: 'bok',
+            emoji: 'BOOK',
+            audioAssetPath: 'assets/audio/words/bok.mp3',
+          ),
+          AlphabeticWord(
+            word: 'sol',
+            emoji: 'SUN',
+            audioAssetPath: 'assets/audio/words/sol.mp3',
+          ),
+          AlphabeticWord(
+            word: 'lam',
+            emoji: 'LAMB',
+            audioAssetPath: 'assets/audio/words/lam.mp3',
+          ),
+        ],
+        random: Random(0),
+      );
+      addTearDown(state.dispose);
+
+      state.start();
+      state.playLevel(2);
+
+      final seenWords = <String>[];
+      for (var round = 0; round < 4; round++) {
+        seenWords.add(state.currentWord.word);
+        _completeCurrentBuildWord(state);
+        state.finishBuildWordCelebration(state.celebrationToken);
+      }
+
+      expect(seenWords.toSet(), {'ape', 'bok', 'sol', 'lam'});
+      expect(seenWords, isNot(equals(['ape', 'bok', 'sol', 'lam'])));
+    });
+
     test(
       'level 3 waits for the spelling celebration to finish before advancing',
       () async {
@@ -115,12 +199,14 @@ void main() {
 
         state.start();
         state.playLevel(2);
+        final initialWord = state.currentWord.word;
+        final nextWord = [
+          'katt',
+          'sol',
+        ].firstWhere((word) => word != initialWord);
         final audioCueTokenBeforeCelebration = state.audioCueToken;
 
-        expect(state.selectChoice(_choiceFor(state, 'K')), isTrue);
-        expect(state.selectChoice(_choiceFor(state, 'A')), isTrue);
-        expect(state.selectChoice(_choiceFor(state, 'T')), isTrue);
-        expect(state.selectChoice(_choiceFor(state, 'T')), isTrue);
+        _completeCurrentBuildWord(state);
 
         final celebrationToken = state.celebrationToken;
         expect(state.showSuccess, isTrue);
@@ -131,13 +217,13 @@ void main() {
               const Duration(milliseconds: 150),
         );
 
-        expect(state.currentWord.word, 'katt');
+        expect(state.currentWord.word, initialWord);
         expect(state.showSuccess, isTrue);
         expect(state.audioCueToken, audioCueTokenBeforeCelebration);
 
         state.finishBuildWordCelebration(celebrationToken);
 
-        expect(state.currentWord.word, 'sol');
+        expect(state.currentWord.word, nextWord);
         expect(state.showSuccess, isFalse);
         expect(state.audioCueToken, audioCueTokenBeforeCelebration + 1);
       },
@@ -147,4 +233,10 @@ void main() {
 
 AlphabeticChoice _choiceFor(AlphabeticPrincipleState state, String letter) {
   return state.choices.firstWhere((choice) => choice.letter == letter);
+}
+
+void _completeCurrentBuildWord(AlphabeticPrincipleState state) {
+  for (final letter in state.currentWord.letters) {
+    state.selectChoice(_choiceFor(state, letter));
+  }
 }

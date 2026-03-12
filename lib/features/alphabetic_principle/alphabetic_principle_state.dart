@@ -38,7 +38,6 @@ class AlphabeticPrincipleState extends ChangeNotifier {
   Timer? _wrongAnswerTimer;
 
   int _level = 0;
-  int _roundIndex = 0;
   int _audioCueToken = 0;
   int _celebrationToken = 0;
   int _missingIndex = 0;
@@ -46,6 +45,8 @@ class AlphabeticPrincipleState extends ChangeNotifier {
   String? _wrongChoiceId;
   List<String?> _slots = const [];
   List<AlphabeticChoice> _choices = const [];
+  List<int> _roundOrder = const [];
+  int _roundPosition = 0;
 
   int get level => _level;
   int get highestLevel => 2;
@@ -55,7 +56,7 @@ class AlphabeticPrincipleState extends ChangeNotifier {
   bool get isBuildWordLevel => _level == 2;
   int get missingIndex => _missingIndex;
   String? get wrongChoiceId => _wrongChoiceId;
-  AlphabeticWord get currentWord => _words[_roundIndex];
+  AlphabeticWord get currentWord => _words[_currentWordIndex];
   List<String?> get slots => List<String?>.unmodifiable(_slots);
   List<AlphabeticChoice> get choices =>
       List<AlphabeticChoice>.unmodifiable(_choices);
@@ -63,13 +64,7 @@ class AlphabeticPrincipleState extends ChangeNotifier {
   String get titleText => switch (_level) {
     0 => 'Finn første bokstav!',
     1 => 'Finn bokstaven som mangler!',
-    _ => 'Bygg ordet!',
-  };
-
-  String get helperText => switch (_level) {
-    0 => 'Trykk på bokstaven som ordet starter med.',
-    1 => 'Finn bokstaven som mangler i ordet.',
-    _ => 'Trykk bokstavene i riktig rekkefølge.',
+    _ => 'Stav ordet!',
   };
 
   int get activeSlotIndex => _slots.indexOf(null);
@@ -121,7 +116,11 @@ class AlphabeticPrincipleState extends ChangeNotifier {
   }
 
   void nextRound() {
-    _roundIndex = (_roundIndex + 1) % _words.length;
+    if (_words.isEmpty) {
+      return;
+    }
+
+    _advanceRound();
     _prepareRound();
   }
 
@@ -174,10 +173,10 @@ class AlphabeticPrincipleState extends ChangeNotifier {
       return;
     }
 
-    if (resetRoundIndex) {
-      _roundIndex = 0;
+    if (resetRoundIndex || _roundOrder.isEmpty) {
+      _resetRoundOrder();
     } else {
-      _roundIndex %= _words.length;
+      _roundPosition %= _roundOrder.length;
     }
 
     final letters = currentWord.letters;
@@ -245,6 +244,50 @@ class AlphabeticPrincipleState extends ChangeNotifier {
       ),
       growable: false,
     );
+  }
+
+  int get _currentWordIndex {
+    if (_roundOrder.isNotEmpty) {
+      return _roundOrder[_roundPosition];
+    }
+    return 0;
+  }
+
+  void _resetRoundOrder() {
+    _roundOrder = _shuffledRoundOrder();
+    _roundPosition = 0;
+  }
+
+  void _advanceRound() {
+    if (_roundOrder.isEmpty) {
+      _resetRoundOrder();
+      return;
+    }
+
+    final previousWordIndex = _roundOrder[_roundPosition];
+    _roundPosition++;
+    if (_roundPosition < _roundOrder.length) {
+      return;
+    }
+
+    _roundOrder = _shuffledRoundOrder(avoidFirstIndex: previousWordIndex);
+    _roundPosition = 0;
+  }
+
+  List<int> _shuffledRoundOrder({int? avoidFirstIndex}) {
+    final order = List<int>.generate(_words.length, (index) => index);
+    order.shuffle(_random);
+
+    if (avoidFirstIndex != null &&
+        order.length > 1 &&
+        order.first == avoidFirstIndex) {
+      final swapIndex = 1 + _random.nextInt(order.length - 1);
+      final first = order.first;
+      order[0] = order[swapIndex];
+      order[swapIndex] = first;
+    }
+
+    return List<int>.unmodifiable(order);
   }
 
   void _completeRound() {

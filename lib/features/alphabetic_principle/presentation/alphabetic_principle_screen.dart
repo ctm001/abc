@@ -38,6 +38,8 @@ class AlphabeticPrincipleScreen extends StatefulWidget {
 class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
   static const _celebrationLetterGap = Duration(milliseconds: 120);
   static const _postWordPause = Duration(seconds: 2);
+  static const _horizontalContentPadding = 32.0;
+  static const _maxContentWidth = 760.0;
 
   late final AlphabeticPrincipleState _game;
   late final AlphabeticPrincipleAudio _audio;
@@ -270,12 +272,15 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
   }
 
   Widget _buildContent(BuildContext context, double availableWidth) {
-    final cardSize = math.min(availableWidth * 0.55, 290).clamp(210.0, 290.0);
-    final slotSize = math.min(availableWidth / 5.4, 82).clamp(56.0, 82.0);
-    final choiceSize = math.min(availableWidth / 4.7, 92).clamp(70.0, 92.0);
-    final choiceBankHeight = _choiceBankHeight(
-      availableWidth: availableWidth,
-      choiceSize: choiceSize.toDouble(),
+    final contentWidth = _contentWidth(availableWidth);
+    final cardSize = math.min(contentWidth * 0.55, 290).clamp(210.0, 290.0);
+    final slotSize = math.min(contentWidth / 5.4, 82).clamp(56.0, 82.0);
+    final choiceLayout = _choiceLayoutMetrics(
+      availableWidth: contentWidth,
+      totalChoices: _game.isBuildWordLevel
+          ? _game.currentWord.letters.length
+          : 4,
+      isBuildWordLevel: _game.isBuildWordLevel,
     );
 
     return Column(
@@ -290,16 +295,7 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
             color: AppColors.textOlive,
           ),
         ),
-        const SizedBox(height: 10),
-        Text(
-          _game.helperText,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.aBeeZee(
-            fontSize: 16,
-            color: AppColors.textDark.withValues(alpha: 0.8),
-          ),
-        ),
-        const SizedBox(height: 26),
+        const SizedBox(height: 24),
         _WordCard(
           emoji: _game.currentWord.emoji,
           onReplay: _playPrompt,
@@ -318,14 +314,15 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
         ),
         const SizedBox(height: 28),
         SizedBox(
-          height: choiceBankHeight,
+          height: choiceLayout.height,
           child: Align(
             alignment: Alignment.topCenter,
             child: _ChoiceBank(
               choices: _game.choices,
               wrongChoiceId: _game.wrongChoiceId,
               onChoiceTapped: _onChoiceTapped,
-              choiceSize: choiceSize.toDouble(),
+              choiceSize: choiceLayout.size,
+              spacing: choiceLayout.spacing,
             ),
           ),
         ),
@@ -333,23 +330,54 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
     );
   }
 
-  double _choiceBankHeight({
+  double _contentWidth(double availableWidth) {
+    final paddedWidth = math.max(
+      0.0,
+      availableWidth - _horizontalContentPadding,
+    );
+    return math.min(paddedWidth, _maxContentWidth);
+  }
+
+  _ChoiceLayoutMetrics _choiceLayoutMetrics({
     required double availableWidth,
-    required double choiceSize,
+    required int totalChoices,
+    required bool isBuildWordLevel,
   }) {
-    const spacing = 16.0;
-    const maxContentWidth = 760.0;
-    final totalChoices = _game.isBuildWordLevel
-        ? _game.currentWord.letters.length
-        : 4;
-    final contentWidth = math.min(availableWidth, maxContentWidth);
+    final spacing = isBuildWordLevel ? 10.0 : 16.0;
+    final maxChoiceSize = 92.0;
+    final minChoiceSize = isBuildWordLevel ? 42.0 : 70.0;
+    final contentWidth = math.max(0.0, availableWidth);
+    final singleRowSize =
+        (contentWidth - (spacing * (totalChoices - 1))) / totalChoices;
+    final choiceSize =
+        (isBuildWordLevel
+                ? singleRowSize
+                : math.min(contentWidth / 4.7, maxChoiceSize))
+            .clamp(minChoiceSize, maxChoiceSize)
+            .toDouble();
     final columns = math.max(
       1,
       ((contentWidth + spacing) / (choiceSize + spacing)).floor(),
     );
     final rows = (totalChoices / columns).ceil();
-    return (rows * choiceSize) + ((rows - 1) * spacing);
+    return _ChoiceLayoutMetrics(
+      size: choiceSize,
+      spacing: spacing,
+      height: (rows * choiceSize) + ((rows - 1) * spacing),
+    );
   }
+}
+
+class _ChoiceLayoutMetrics {
+  const _ChoiceLayoutMetrics({
+    required this.size,
+    required this.spacing,
+    required this.height,
+  });
+
+  final double size;
+  final double spacing;
+  final double height;
 }
 
 class _Header extends StatelessWidget {
@@ -718,19 +746,21 @@ class _ChoiceBank extends StatelessWidget {
     required this.wrongChoiceId,
     required this.onChoiceTapped,
     required this.choiceSize,
+    required this.spacing,
   });
 
   final List<AlphabeticChoice> choices;
   final String? wrongChoiceId;
   final ValueChanged<AlphabeticChoice> onChoiceTapped;
   final double choiceSize;
+  final double spacing;
 
   @override
   Widget build(BuildContext context) {
     return Wrap(
       alignment: WrapAlignment.center,
-      spacing: 16,
-      runSpacing: 16,
+      spacing: spacing,
+      runSpacing: spacing,
       children: choices
           .map((choice) {
             return _ChoiceButton(
