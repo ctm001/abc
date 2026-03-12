@@ -31,9 +31,6 @@ class FingerTracingLayout {
   final double playerStrokeWidth;
   final double startDotRadius;
   final double checkpointRadius;
-
-  double get finalCheckpointHitRadius =>
-      (guideStrokeWidth * 0.52).clamp(10.0, 16.0);
 }
 
 /// Geometry for one ordered stroke in a traced letter.
@@ -55,6 +52,9 @@ typedef _StrokeBuilder = Path Function(_GuideFrame frame);
 
 /// Registry of tracing guides for the Norwegian alphabet.
 abstract final class FingerTracingGuides {
+  static const guidePaintScale = 1.3;
+  static const tracePathThicknessScale = 1.5625;
+
   static FingerTracingLayout layoutFor(String character, Size size) {
     final frame = _GuideFrame.fromCharacter(character, size);
     final builders = _guideBuilders[character] ?? _guideBuilders['A']!;
@@ -68,6 +68,12 @@ abstract final class FingerTracingGuides {
     final sampleSpacing = (checkpointSpacing * 0.45).clamp(8.0, 14.0);
 
     final guideStrokeWidth = (frame.rect.shortestSide * 0.11).clamp(18.0, 30.0);
+    final traceStrokeWidth = guideStrokeWidth * tracePathThicknessScale;
+    final paintThicknessScale = paintThicknessScaleFor(character);
+    final guidePaintWidth = guidePaintWidthFor(
+      character,
+      guideStrokeWidth,
+    );
     final strokes = strokePaths
         .map((path) {
           final checkpoints = _sampleCheckpoints(path, checkpointSpacing);
@@ -91,14 +97,28 @@ abstract final class FingerTracingGuides {
           .toList(growable: false),
       guideRect: frame.rect,
       hitRadius: (guideStrokeWidth * 0.9).clamp(18.0, 28.0),
-      startHitRadius: (guideStrokeWidth * 1.05).clamp(22.0, 34.0),
-      pathTolerance: (guideStrokeWidth * 0.85).clamp(16.0, 26.0),
+      startHitRadius: (guideStrokeWidth * 1.15).clamp(24.0, 36.0),
+      pathTolerance: max(
+        (guideStrokeWidth * 0.85).clamp(16.0, 26.0).toDouble(),
+        guidePaintWidth / 2,
+      ),
       guideStrokeWidth: guideStrokeWidth,
-      playerStrokeWidth: guideStrokeWidth * 0.58,
-      startDotRadius: guideStrokeWidth * 0.34,
+      playerStrokeWidth: traceStrokeWidth * 0.58 * paintThicknessScale,
+      startDotRadius: guideStrokeWidth * 0.20,
       checkpointRadius: guideStrokeWidth * 0.16,
     );
   }
+
+  static double guidePaintWidthFor(String character, double guideStrokeWidth) =>
+      guideStrokeWidth *
+      guidePaintScale *
+      tracePathThicknessScale *
+      paintThicknessScaleFor(character);
+
+  static double paintThicknessScaleFor(String character) => switch (character) {
+    'Å' || 'å' => 0.8,
+    _ => 1.0,
+  };
 
   static Offset? _firstPointForPath(Path path) {
     for (final metric in path.computeMetrics()) {

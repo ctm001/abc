@@ -34,6 +34,8 @@ class FingerTracingScreen extends StatefulWidget {
 }
 
 class _FingerTracingScreenState extends State<FingerTracingScreen> {
+  static const _tracingCardAspectRatio = 1.0;
+
   late final FingerTracingState _game;
   late final FingerTracingAudio _audio;
   late final bool _ownsGame;
@@ -124,7 +126,7 @@ class _FingerTracingScreenState extends State<FingerTracingScreen> {
                             return SizedBox(
                               width: constraints.maxWidth,
                               child: AspectRatio(
-                                aspectRatio: 0.92,
+                                aspectRatio: _tracingCardAspectRatio,
                                 child: _TracingCard(
                                   key: ValueKey(_game.roundId),
                                   letter: _game.currentLetter,
@@ -165,48 +167,63 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(8),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: onBack,
-            child: Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.85),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AppColors.textDark.withValues(alpha: 0.15),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.10),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
+      child: SizedBox(
+        height: 50,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: onBack,
+                child: Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.textDark.withValues(alpha: 0.15),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.10),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: const Icon(
-                Icons.arrow_back_rounded,
-                color: AppColors.textDark,
-                size: 24,
-              ),
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: IgnorePointer(
-              child: Text(
-                'Spor bokstavene',
-                style: GoogleFonts.aBeeZee(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textDark,
+                  child: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: AppColors.textDark,
+                    size: 24,
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+            IgnorePointer(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 72),
+                child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'Spor bokstavene!',
+                      maxLines: 1,
+                      softWrap: false,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.aBeeZee(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -340,6 +357,8 @@ class _TracingCard extends StatefulWidget {
 
 class _TracingCardState extends State<_TracingCard>
     with TickerProviderStateMixin {
+  static const _dotRewindOnStray = 5;
+
   late final AnimationController _guideController;
   late final AnimationController _successController;
   late final Animation<double> _successCurve;
@@ -347,6 +366,9 @@ class _TracingCardState extends State<_TracingCard>
   Size? _lastSize;
   final List<List<Offset>> _completedStrokes = <List<Offset>>[];
   List<Offset>? _activeStroke;
+  final List<int> _activeCheckpointPathIndices = <int>[];
+  bool _isTracingGesture = false;
+  bool _gestureRewound = false;
   int _nextStrokeIndex = 0;
   int _committedCheckpointCount = 0;
   int _activeCheckpointCount = 0;
@@ -466,7 +488,8 @@ class _TracingCardState extends State<_TracingCard>
                           strokes: _paintedStrokes,
                           completedStrokeCount: _nextStrokeIndex,
                           activeCheckpointCount: _activeCheckpointCount,
-                          hasActiveStroke: _activeStroke != null,
+                          hasCurrentStroke: _activeStroke != null,
+                          isTracingGesture: _isTracingGesture,
                           success: widget.showSuccess,
                           guideAnimation: _guideController,
                           successAnimation: _successCurve,
@@ -540,13 +563,15 @@ class _TracingCardState extends State<_TracingCard>
 
     final clampedPoint = _clampPoint(point);
     final stroke = layout.strokes[_nextStrokeIndex];
-    if ((stroke.startDot - clampedPoint).distance > layout.startHitRadius) {
+    final resumePoint = _resumePointFor(stroke);
+    if ((resumePoint - clampedPoint).distance > layout.startHitRadius) {
       return;
     }
 
     setState(() {
-      _activeStroke = <Offset>[stroke.startDot];
-      _activeCheckpointCount = 0;
+      _isTracingGesture = true;
+      _gestureRewound = false;
+      _activeStroke ??= <Offset>[stroke.startDot];
       _captureStrokePoint(clampedPoint, stroke, layout);
     });
   }
@@ -555,6 +580,7 @@ class _TracingCardState extends State<_TracingCard>
     final layout = _layout;
     final activeStroke = _activeStroke;
     if (layout == null ||
+        !_isTracingGesture ||
         activeStroke == null ||
         _nextStrokeIndex >= layout.strokes.length) {
       return;
@@ -572,12 +598,22 @@ class _TracingCardState extends State<_TracingCard>
 
   void _finishStroke() {
     final layout = _layout;
-    if (layout == null || _activeStroke == null) {
+    if (layout == null || !_isTracingGesture) {
       return;
     }
 
     setState(() {
-      _cancelActiveStroke(layout);
+      _isTracingGesture = false;
+      if (_activeStroke == null || _nextStrokeIndex >= layout.strokes.length) {
+        return;
+      }
+      if (_gestureRewound) {
+        _restartGuideCue();
+        _updateCoverage(layout);
+        return;
+      }
+      _rewindActiveStroke(layout.strokes[_nextStrokeIndex], layout);
+      _restartGuideCue();
     });
   }
 
@@ -592,7 +628,9 @@ class _TracingCardState extends State<_TracingCard>
     }
 
     if (!_isNearStrokePath(point, stroke, layout.pathTolerance)) {
-      _cancelActiveStroke(layout);
+      _rewindActiveStroke(stroke, layout);
+      _isTracingGesture = false;
+      _restartGuideCue();
       return;
     }
 
@@ -619,12 +657,10 @@ class _TracingCardState extends State<_TracingCard>
     while (_activeCheckpointCount < stroke.checkpoints.length) {
       final checkpointIndex = _activeCheckpointCount;
       final checkpoint = stroke.checkpoints[checkpointIndex];
-      final radius = checkpointIndex == stroke.checkpoints.length - 1
-          ? layout.finalCheckpointHitRadius
-          : layout.hitRadius;
-      if (!_segmentHitsCheckpoint(start, end, checkpoint, radius)) {
+      if (!_segmentHitsCheckpoint(start, end, checkpoint, layout.hitRadius)) {
         break;
       }
+      _activeCheckpointPathIndices.add((_activeStroke?.length ?? 1) - 1);
       _activeCheckpointCount++;
     }
   }
@@ -642,23 +678,53 @@ class _TracingCardState extends State<_TracingCard>
     _committedCheckpointCount += stroke.checkpoints.length;
     _nextStrokeIndex++;
     _activeStroke = null;
+    _activeCheckpointPathIndices.clear();
     _activeCheckpointCount = 0;
     _restartGuideCue();
     _updateCoverage(layout);
   }
 
-  void _cancelActiveStroke(FingerTracingLayout layout) {
-    _activeStroke = null;
-    _activeCheckpointCount = 0;
-    _restartGuideCue();
+  void _rewindActiveStroke(
+    FingerTracingStrokeLayout stroke,
+    FingerTracingLayout layout,
+  ) {
+    final activeStroke = _activeStroke;
+    if (activeStroke == null) {
+      return;
+    }
+
+    _gestureRewound = true;
+    final retainedCheckpointCount = _activeCheckpointCount > _dotRewindOnStray
+        ? _activeCheckpointCount - _dotRewindOnStray
+        : 0;
+
+    if (retainedCheckpointCount == 0) {
+      _activeStroke = null;
+      _activeCheckpointPathIndices.clear();
+      _activeCheckpointCount = 0;
+      _updateCoverage(layout);
+      return;
+    }
+
+    final retainPathIndex =
+        _activeCheckpointPathIndices[retainedCheckpointCount - 1];
+    _activeStroke = List<Offset>.from(activeStroke.take(retainPathIndex + 1));
+    _activeCheckpointPathIndices.removeRange(
+      retainedCheckpointCount,
+      _activeCheckpointPathIndices.length,
+    );
+    _activeCheckpointCount = retainedCheckpointCount;
     _updateCoverage(layout);
   }
 
   void _resetTraceProgress() {
     _completedStrokes.clear();
     _activeStroke = null;
+    _isTracingGesture = false;
+    _gestureRewound = false;
     _nextStrokeIndex = 0;
     _committedCheckpointCount = 0;
+    _activeCheckpointPathIndices.clear();
     _activeCheckpointCount = 0;
     _restartGuideCue();
   }
@@ -714,6 +780,9 @@ class _TracingCardState extends State<_TracingCard>
     Offset checkpoint,
     double radius,
   ) => _distanceToSegment(checkpoint, start, end) <= radius;
+
+  Offset _resumePointFor(FingerTracingStrokeLayout stroke) =>
+      _activeStroke?.last ?? stroke.startDot;
 
   List<List<Offset>> get _paintedStrokes {
     final activeStroke = _activeStroke;
@@ -813,13 +882,83 @@ class _SuccessLetterOutline extends StatelessWidget {
   Widget build(BuildContext context) {
     return FittedBox(
       fit: BoxFit.contain,
-      child: Text(
-        character,
+      child: _TracingLetterGlyph(
+        character: character,
+        detachedRingKey: const ValueKey('finger-tracing-success-letter-ring'),
         style: GoogleFonts.aBeeZee(
           fontSize: 220,
           height: 1,
           fontWeight: FontWeight.w400,
           color: AppColors.fingerTracing.withValues(alpha: 0.82),
+        ),
+      ),
+    );
+  }
+}
+
+class _TracingLetterGlyph extends StatelessWidget {
+  const _TracingLetterGlyph({
+    required this.character,
+    required this.style,
+    this.detachedRingKey,
+  });
+
+  final String character;
+  final TextStyle style;
+  final Key? detachedRingKey;
+
+  @override
+  Widget build(BuildContext context) {
+    if (character != 'Å' && character != 'å') {
+      return Text(character, style: style);
+    }
+
+    final fontSize = style.fontSize ?? 16;
+    final ringColor =
+        style.color ?? DefaultTextStyle.of(context).style.color ?? Colors.black;
+    final bodyCharacter = character == 'å' ? 'a' : 'A';
+    final width = fontSize * 0.90;
+    final height = fontSize * 1.18;
+    final bodyTop = fontSize * 0.18;
+    final ringSize = fontSize * 0.18;
+    final ringStrokeWidth = (fontSize * 0.03).clamp(1.0, 8.0).toDouble();
+
+    return Semantics(
+      label: character,
+      child: ExcludeSemantics(
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.topCenter,
+            children: [
+              Positioned.fill(
+                top: bodyTop,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: Text(bodyCharacter, style: style.copyWith(height: 1)),
+                ),
+              ),
+              Positioned(
+                top: fontSize * 0.01,
+                child: SizedBox(
+                  key: detachedRingKey,
+                  width: ringSize,
+                  height: ringSize,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: ringColor,
+                        width: ringStrokeWidth,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -833,7 +972,8 @@ class _TracingBoardPainter extends CustomPainter {
     required this.strokes,
     required this.completedStrokeCount,
     required this.activeCheckpointCount,
-    required this.hasActiveStroke,
+    required this.hasCurrentStroke,
+    required this.isTracingGesture,
     required this.success,
     required this.guideAnimation,
     required this.successAnimation,
@@ -844,7 +984,8 @@ class _TracingBoardPainter extends CustomPainter {
   final List<List<Offset>> strokes;
   final int completedStrokeCount;
   final int activeCheckpointCount;
-  final bool hasActiveStroke;
+  final bool hasCurrentStroke;
+  final bool isTracingGesture;
   final bool success;
   final Animation<double> guideAnimation;
   final Animation<double> successAnimation;
@@ -859,7 +1000,10 @@ class _TracingBoardPainter extends CustomPainter {
   }
 
   void _paintGuide(Canvas canvas) {
-    final guideWidth = layout.guideStrokeWidth * 1.3;
+    final guideWidth = FingerTracingGuides.guidePaintWidthFor(
+      character,
+      layout.guideStrokeWidth,
+    );
     final fade = 1 - _successProgress;
 
     for (
@@ -913,7 +1057,7 @@ class _TracingBoardPainter extends CustomPainter {
       final stroke = layout.strokes[strokeIndex];
       final completedCheckpoints = strokeIndex < completedStrokeCount
           ? stroke.checkpoints.length
-          : strokeIndex == completedStrokeCount && hasActiveStroke
+          : strokeIndex == completedStrokeCount && hasCurrentStroke
           ? activeCheckpointCount
           : 0;
 
@@ -923,6 +1067,9 @@ class _TracingBoardPainter extends CustomPainter {
         checkpointIndex++
       ) {
         final isHit = checkpointIndex < completedCheckpoints;
+        final baseRadius = checkpointIndex == 0
+            ? layout.startDotRadius
+            : layout.checkpointRadius;
         final pulseStrength = isHit
             ? 0.0
             : _checkpointPulse(
@@ -932,7 +1079,7 @@ class _TracingBoardPainter extends CustomPainter {
               );
         canvas.drawCircle(
           stroke.checkpoints[checkpointIndex],
-          layout.checkpointRadius,
+          baseRadius,
           isHit
               ? hitPaint
               : strokeIndex == completedStrokeCount && !success
@@ -956,19 +1103,15 @@ class _TracingBoardPainter extends CustomPainter {
         final checkpoint = stroke.checkpoints[checkpointIndex];
         canvas.drawCircle(
           checkpoint,
-          layout.checkpointRadius * (1.5 + (pulseStrength * 0.8)),
+          baseRadius * (1.5 + (pulseStrength * 0.8)),
           cueGlowPaint,
         );
         canvas.drawCircle(
           checkpoint,
-          layout.checkpointRadius * (0.9 + (pulseStrength * 0.35)),
+          baseRadius * (0.9 + (pulseStrength * 0.35)),
           cueCorePaint,
         );
-        canvas.drawCircle(
-          checkpoint,
-          layout.checkpointRadius * 0.34,
-          cueSparkPaint,
-        );
+        canvas.drawCircle(checkpoint, baseRadius * 0.34, cueSparkPaint);
       }
     }
   }
@@ -1010,7 +1153,7 @@ class _TracingBoardPainter extends CustomPainter {
 
   bool get _showGuideCue =>
       !success &&
-      !hasActiveStroke &&
+      !isTracingGesture &&
       completedStrokeCount < layout.strokes.length;
 
   double _checkpointPulse(
@@ -1037,7 +1180,8 @@ class _TracingBoardPainter extends CustomPainter {
         strokes != oldDelegate.strokes ||
         completedStrokeCount != oldDelegate.completedStrokeCount ||
         activeCheckpointCount != oldDelegate.activeCheckpointCount ||
-        hasActiveStroke != oldDelegate.hasActiveStroke ||
+        hasCurrentStroke != oldDelegate.hasCurrentStroke ||
+        isTracingGesture != oldDelegate.isTracingGesture ||
         success != oldDelegate.success ||
         guideAnimation != oldDelegate.guideAnimation ||
         successAnimation != oldDelegate.successAnimation;

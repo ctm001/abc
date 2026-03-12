@@ -33,6 +33,52 @@ void main() {
     );
   });
 
+  test('trace path thickness scale applies to player strokes', () {
+    final layout = FingerTracingGuides.layoutFor('A', const Size(520, 520));
+
+    expect(
+      layout.playerStrokeWidth,
+      closeTo(
+        layout.guideStrokeWidth *
+            0.58 *
+            FingerTracingGuides.tracePathThicknessScale,
+        0.001,
+      ),
+    );
+  });
+
+  test('interaction tolerances stay aligned with the thicker rendered guide', () {
+    final layout = FingerTracingGuides.layoutFor('A', const Size(520, 520));
+
+    expect(
+      layout.pathTolerance,
+      greaterThanOrEqualTo(
+        FingerTracingGuides.guidePaintWidthFor('A', layout.guideStrokeWidth) /
+            2,
+      ),
+    );
+  });
+
+  test('Å uses a thinner rendered trace path than the default letters', () {
+    final aLayout = FingerTracingGuides.layoutFor('A', const Size(520, 520));
+    final aaLayout = FingerTracingGuides.layoutFor('Å', const Size(520, 520));
+
+    expect(
+      FingerTracingGuides.guidePaintWidthFor('Å', aaLayout.guideStrokeWidth),
+      lessThan(
+        FingerTracingGuides.guidePaintWidthFor('A', aLayout.guideStrokeWidth),
+      ),
+    );
+    expect(aaLayout.playerStrokeWidth, lessThan(aLayout.playerStrokeWidth));
+  });
+
+  test('start dots are slightly larger and easier to hit than other dots', () {
+    final layout = FingerTracingGuides.layoutFor('A', const Size(520, 520));
+
+    expect(layout.startDotRadius, greaterThan(layout.checkpointRadius));
+    expect(layout.startHitRadius, greaterThan(layout.hitRadius));
+  });
+
   test('Å guide keeps a smaller top ring inside the drawing area', () {
     final layout = FingerTracingGuides.layoutFor('Å', const Size(520, 520));
     final ringRect = layout.strokePaths.first.getBounds();

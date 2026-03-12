@@ -50,12 +50,21 @@ abstract final class StackDimensions {
 /// Shared animation timings for the letter matching game.
 abstract final class GameTimings {
   static const wrongAnswerReset = Duration(milliseconds: 500);
-  static const stackCrumbleBase = Duration(milliseconds: 1200);
-  static const stackCrumblePerTileMs = 100;
   static const climbingBounce = Duration(milliseconds: 400);
   static const climbingIdle = Duration(milliseconds: 8000);
   static const falling = Duration(milliseconds: 1200);
   static const fallingFlail = Duration(milliseconds: 150);
+  static const fallingFigureFreefallMs = 650;
+  static const fallingFigureParachuteMs = 950;
+  static const fallingFigureFreefall = Duration(
+    milliseconds: fallingFigureFreefallMs,
+  );
+  static const fallingFigureParachute = Duration(
+    milliseconds: fallingFigureParachuteMs,
+  );
+  static const fallingFigureTotal = Duration(
+    milliseconds: fallingFigureFreefallMs + fallingFigureParachuteMs,
+  );
   static const parachuteDescent = Duration(milliseconds: 3000);
   static const parachuteSwing = Duration(milliseconds: 800);
   static const stackCrumbleStaggerMs = 80;
@@ -70,8 +79,12 @@ abstract final class GameTimings {
   static const targetPress = Duration(milliseconds: 100);
 
   static Duration stackCrumbleDuration(int tileCount) {
-    return stackCrumbleBase +
-        Duration(milliseconds: tileCount * stackCrumblePerTileMs);
+    final tilesAboveBottom = tileCount > 0 ? tileCount - 1 : 0;
+    final tileFallDuration =
+        falling + stackCrumbleStaggerDelay(tilesAboveBottom);
+    return tileFallDuration > fallingFigureTotal
+        ? tileFallDuration
+        : fallingFigureTotal;
   }
 
   static Duration stackCrumbleStaggerDelay(int tilesAbove) {
