@@ -159,9 +159,4 @@ const alphabeticPrincipleWords = <AlphabeticWord>[
     emoji: '🌳',
     audioAssetPath: 'assets/audio/words/tre.mp3',
   ),
-  AlphabeticWord(
-    word: 'vott',
-    emoji: '🧤',
-    audioAssetPath: 'assets/audio/words/vott.mp3',
-  ),
 ];

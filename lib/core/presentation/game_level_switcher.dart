@@ -61,19 +61,19 @@ class GameLevelSwitcher extends StatelessWidget {
     return switch (level) {
       0 => _SwitcherTone(
         fill: const Color(0xFFDCE8D4),
-        border: AppColors.seed.withValues(alpha: 0.24),
+        border: AppColors.seed.withValues(alpha: 0.5),
         text: AppColors.primaryDark,
         shadow: AppColors.seed.withValues(alpha: 0.12),
       ),
       1 => _SwitcherTone(
         fill: AppColors.alphabeticPrincipleLight.withValues(alpha: 0.34),
-        border: AppColors.alphabeticPrincipleDark.withValues(alpha: 0.65),
+        border: AppColors.alphabeticPrincipleDark.withValues(alpha: 0.75),
         text: AppColors.alphabeticPrincipleDark,
         shadow: AppColors.alphabeticPrincipleDark.withValues(alpha: 0.16),
       ),
       _ => _SwitcherTone(
         fill: const Color(0xFFF0D6D1),
-        border: AppColors.letterMatchingDark.withValues(alpha: 0.24),
+        border: AppColors.letterMatchingDark.withValues(alpha: 0.5),
         text: AppColors.letterMatchingDark,
         shadow: AppColors.letterMatchingDark.withValues(alpha: 0.12),
       ),
