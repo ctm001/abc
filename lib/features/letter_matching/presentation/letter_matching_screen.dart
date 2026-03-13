@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/audio/audio_service.dart';
 import '../../../core/presentation/animated_background.dart';
+import '../../../core/presentation/game_level_switcher.dart';
 import '../../../core/routing/route_names.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/letter_repository.dart';
@@ -199,7 +201,13 @@ class _LetterMatchingScreenState extends State<LetterMatchingScreen> {
             const Spacer(),
             _PressableTargetDisplay(
               onTap: _playTargetSound,
-              isQuestionMarkMode: _game.isQuestionMarkMode,
+              displayMode: switch (_game.level) {
+                FindLetterState.visibleLevel =>
+                  _TargetDisplayMode.visibleLetter,
+                FindLetterState.fadeToAudioLevel =>
+                  _TargetDisplayMode.fadeToAudio,
+                _ => _TargetDisplayMode.audioOnly,
+              },
               letter: _game.targetLetter,
               size: target,
             ),
@@ -266,63 +274,14 @@ class _Header extends StatelessWidget {
             _BackButton(onTap: onBack),
             const Spacer(),
             if (game.highestLevel > 0)
-              _LevelChip(
+              GameLevelSwitcher(
                 currentLevel: game.level,
                 highestLevel: game.highestLevel,
-                onLevelChanged: onLevelChanged,
+                onTap: () {
+                  final next = (game.level + 1) % (game.highestLevel + 1);
+                  onLevelChanged(next);
+                },
               ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// -- Level chip ----------------------------------------------
-
-class _LevelChip extends StatelessWidget {
-  const _LevelChip({
-    required this.currentLevel,
-    required this.highestLevel,
-    required this.onLevelChanged,
-  });
-
-  final int currentLevel;
-  final int highestLevel;
-  final ValueChanged<int> onLevelChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        final next = (currentLevel + 1) % (highestLevel + 1);
-        onLevelChanged(next);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: currentLevel == 0 ? AppColors.seed : AppColors.letterMatching,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.textDark.withValues(alpha: 0.15)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              currentLevel == 0 ? Icons.visibility : Icons.hearing,
-              color: Colors.white,
-              size: 18,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              'Nivå ${currentLevel + 1}',
-              style: GoogleFonts.aBeeZee(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
           ],
         ),
       ),
@@ -368,16 +327,18 @@ class _BackButton extends StatelessWidget {
 
 // -- Target display ------------------------------------------
 
+enum _TargetDisplayMode { visibleLetter, fadeToAudio, audioOnly }
+
 class _PressableTargetDisplay extends StatefulWidget {
   const _PressableTargetDisplay({
     required this.onTap,
-    required this.isQuestionMarkMode,
+    required this.displayMode,
     required this.letter,
     this.size = GameDimensions.targetSize,
   });
 
   final VoidCallback onTap;
-  final bool isQuestionMarkMode;
+  final _TargetDisplayMode displayMode;
   final GameLetter letter;
   final double size;
 
@@ -388,6 +349,8 @@ class _PressableTargetDisplay extends StatefulWidget {
 
 class _PressableTargetDisplayState extends State<_PressableTargetDisplay>
     with SingleTickerProviderStateMixin {
+  static const _audioCueFadeDuration = Duration(seconds: 2);
+
   late final AnimationController _ctrl;
   late final Animation<double> _scale;
 
@@ -409,7 +372,15 @@ class _PressableTargetDisplayState extends State<_PressableTargetDisplay>
 
   @override
   Widget build(BuildContext context) {
-    final qm = widget.isQuestionMarkMode;
+    final targetProgress = switch (widget.displayMode) {
+      _TargetDisplayMode.visibleLetter => 0.0,
+      _TargetDisplayMode.fadeToAudio => 1.0,
+      _TargetDisplayMode.audioOnly => 1.0,
+    };
+    final animationDuration =
+        widget.displayMode == _TargetDisplayMode.fadeToAudio
+        ? _audioCueFadeDuration
+        : Duration.zero;
     return GestureDetector(
       onTapDown: (_) => _ctrl.forward(),
       onTapUp: (_) {
@@ -419,60 +390,100 @@ class _PressableTargetDisplayState extends State<_PressableTargetDisplay>
       onTapCancel: () => _ctrl.reverse(),
       child: ScaleTransition(
         scale: _scale,
-        child: Container(
-          key: const ValueKey('letter-matching-target-display'),
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-            gradient: qm
-                ? LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      widget.letter.color,
-                      widget.letter.color.withValues(alpha: 0.8),
-                    ],
-                  )
-                : null,
-            color: qm ? null : Colors.white,
-            borderRadius: BorderRadius.circular(GameDimensions.borderRadius),
-            border: qm
-                ? Border.all(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    width: 3,
-                  )
-                : Border.all(color: widget.letter.color, width: 4),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.white.withValues(alpha: 0.6),
-                blurRadius: 16,
-                spreadRadius: 2,
-              ),
-              BoxShadow(
-                color: widget.letter.color.withValues(alpha: 0.5),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
+        child: TweenAnimationBuilder<double>(
+          key: ValueKey(
+            'target-display-${widget.letter.character}-${widget.displayMode.name}',
           ),
-          child: Center(
-            child: qm
-                ? Icon(
-                    Icons.volume_up,
-                    size: widget.size * 0.41,
-                    color: Colors.white,
-                  )
-                : Text(
-                    widget.letter.character,
-                    style: GoogleFonts.aBeeZee(
-                      fontSize: widget.size * 0.6,
-                      fontWeight: FontWeight.w700,
-                      color: widget.letter.color,
+          tween: Tween<double>(begin: 0, end: targetProgress),
+          duration: animationDuration,
+          curve: Curves.linear,
+          builder: (context, audioCueProgress, _) {
+            final progress = audioCueProgress;
+
+            return Container(
+              key: const ValueKey('letter-matching-target-display'),
+              width: widget.size,
+              height: widget.size,
+              decoration: _buildTransitionDecoration(progress),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Opacity(
+                    key: const ValueKey('letter-matching-target-letter-layer'),
+                    opacity: 1 - progress,
+                    child: Text(
+                      widget.letter.character,
+                      style: GoogleFonts.aBeeZee(
+                        fontSize: widget.size * 0.6,
+                        fontWeight: FontWeight.w700,
+                        color: widget.letter.color,
+                      ),
                     ),
                   ),
-          ),
+                  Opacity(
+                    key: const ValueKey('letter-matching-target-audio-layer'),
+                    opacity: progress,
+                    child: Icon(
+                      Icons.volume_up,
+                      size: widget.size * 0.41,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
+  }
+
+  BoxDecoration _buildTransitionDecoration(double progress) {
+    return BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          _saturationColor(widget.letter.color, progress),
+          _saturationColor(
+            widget.letter.color.withValues(alpha: 0.8),
+            progress,
+          ),
+        ],
+      ),
+      borderRadius: BorderRadius.circular(GameDimensions.borderRadius),
+      border: Border.all(
+        color: Color.lerp(
+          widget.letter.color,
+          Colors.white.withValues(alpha: 0.8),
+          progress,
+        )!,
+        width: lerpDouble(4, 3, progress)!,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.white.withValues(alpha: 0.6),
+          blurRadius: 16,
+          spreadRadius: 2,
+        ),
+        BoxShadow(
+          color: widget.letter.color.withValues(
+            alpha: lerpDouble(0.18, 0.5, progress)!,
+          ),
+          blurRadius: lerpDouble(18, 24, progress)!,
+          offset: Offset(0, lerpDouble(6, 10, progress)!),
+        ),
+      ],
+    );
+  }
+
+  Color _saturationColor(Color target, double progress) {
+    final opaqueTarget = target.withValues(alpha: 1);
+    final targetHsl = HSLColor.fromColor(opaqueTarget);
+    final saturatedColor = targetHsl
+        .withSaturation(targetHsl.saturation * progress)
+        .withLightness(lerpDouble(1, targetHsl.lightness, progress)!)
+        .toColor();
+    return saturatedColor.withValues(alpha: lerpDouble(1, target.a, progress)!);
   }
 }

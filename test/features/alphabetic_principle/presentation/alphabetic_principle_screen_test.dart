@@ -38,13 +38,13 @@ void main() {
 
     expect(audioService.playedAssets, equals(['assets/audio/words/katt.mp3']));
 
-    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
     await tester.pump();
     await tester.pump();
     expect(gameState.level, 1);
     expect(audioService.playedAssets, hasLength(2));
 
-    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
     await tester.pump();
     await tester.pump();
     expect(gameState.level, 2);
@@ -73,17 +73,17 @@ void main() {
 
     expect(gameState.level, 0);
 
-    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
     await tester.pump();
     await tester.pump();
     expect(gameState.level, 1);
 
-    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
     await tester.pump();
     await tester.pump();
     expect(gameState.level, 2);
 
-    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
     await tester.pump();
     await tester.pump();
     expect(gameState.level, 0);
@@ -115,8 +115,62 @@ void main() {
       tester.getTopLeft(find.byIcon(Icons.arrow_back_rounded)).dx,
       lessThan(40),
     );
-    expect(tester.getTopRight(find.textContaining('Niv')).dx, greaterThan(850));
+    expect(
+      tester.getTopRight(find.byKey(const ValueKey('game-level-switcher'))).dx,
+      greaterThan(850),
+    );
   });
+
+  testWidgets(
+    'word card stays below the header and does not move across levels',
+    (tester) async {
+      final gameState = AlphabeticPrincipleState(
+        letterRepository: LetterRepository(),
+        words: const [
+          AlphabeticWord(
+            word: 'katt',
+            emoji: 'CAT',
+            audioAssetPath: 'assets/audio/words/katt.mp3',
+          ),
+        ],
+        random: Random(0),
+      );
+      addTearDown(gameState.dispose);
+      await tester.binding.setSurfaceSize(const Size(320, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await pumpAlphabeticPrincipleScreen(
+        tester,
+        audioService: RecordingAudioService(),
+        gameState: gameState,
+      );
+
+      final cardFinder = find.byKey(
+        const ValueKey('alphabetic-principle-card'),
+      );
+      final levelOneCardTop = tester.getTopLeft(cardFinder).dy;
+      final levelOneTitleBottom = tester
+          .getBottomLeft(find.text('Finn f\u00F8rste bokstav!'))
+          .dy;
+
+      expect(levelOneCardTop, greaterThan(levelOneTitleBottom));
+
+      await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
+      await tester.pump();
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
+      await tester.pump();
+      await tester.pump();
+
+      final levelThreeCardTop = tester.getTopLeft(cardFinder).dy;
+      final levelThreeTitleBottom = tester
+          .getBottomLeft(find.text('Stav ordet!'))
+          .dy;
+
+      expect(levelThreeCardTop, greaterThan(levelThreeTitleBottom));
+      expect(levelThreeCardTop, closeTo(levelOneCardTop, 0.01));
+    },
+  );
 
   testWidgets('choice bank reuses the matching-game letter button', (
     tester,
@@ -169,10 +223,10 @@ void main() {
 
     final levelOneButtonSize = tester.getSize(find.byType(LetterButton).first);
 
-    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
     await tester.pump();
     await tester.pump();
-    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
     await tester.pump();
     await tester.pump();
 
@@ -213,10 +267,10 @@ void main() {
 
     final levelOneButtonSize = tester.getSize(find.byType(LetterButton).first);
 
-    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
     await tester.pump();
     await tester.pump();
-    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
     await tester.pump();
     await tester.pump();
 
@@ -255,10 +309,10 @@ void main() {
       gameState: gameState,
     );
 
-    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
     await tester.pump();
     await tester.pump();
-    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
     await tester.pump();
     await tester.pump();
 
@@ -286,10 +340,10 @@ void main() {
       gameState: gameState,
     );
 
-    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
     await tester.pump();
     await tester.pump();
-    await tester.tap(find.byIcon(Icons.tune_rounded));
+    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
     await tester.pump();
     await tester.pump();
 
@@ -335,6 +389,7 @@ void main() {
       random: Random(0),
     );
     addTearDown(() {
+      gameAudio.completeAllCelebrations();
       audioService.completeAllAwaitedPlayback();
       gameState.dispose();
     });
@@ -351,6 +406,22 @@ void main() {
     _completeCurrentBuildWord(gameState);
     await tester.pump();
 
+    expect(audioService.playedAssets, isEmpty);
+    expect(
+      find.byKey(const ValueKey('alphabetic-slot-pulsing-0')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('alphabetic-principle-confetti')),
+      findsOneWidget,
+    );
+    expect(gameAudio.celebrationCalls, 1);
+    expect(gameAudio.pendingCelebrationCount, 1);
+    expect(find.text('Bra jobba!'), findsNothing);
+
+    gameAudio.completeNextCelebration();
+    await tester.pump();
+
     expect(audioService.playedAssets, [
       repository.getByCharacter('K').soundAssetPath,
     ]);
@@ -358,12 +429,6 @@ void main() {
       find.byKey(const ValueKey('alphabetic-slot-pulsing-0')),
       findsOneWidget,
     );
-    expect(
-      find.byKey(const ValueKey('alphabetic-principle-confetti')),
-      findsOneWidget,
-    );
-    expect(gameAudio.celebrationCalls, 1);
-    expect(find.text('Bra jobba!'), findsNothing);
 
     audioService.completeNextAwaitedPlayback();
     await tester.pump(_celebrationGap);
@@ -443,6 +508,7 @@ void main() {
         random: Random(0),
       );
       addTearDown(() {
+        gameAudio.completeAllCelebrations();
         audioService.completeAllAwaitedPlayback();
         gameState.dispose();
       });
@@ -463,6 +529,10 @@ void main() {
       ].firstWhere((word) => word != initialWord);
 
       _completeCurrentBuildWord(gameState);
+      await tester.pump();
+
+      expect(audioService.pendingAwaitCount, 0);
+      gameAudio.completeNextCelebration();
       await tester.pump();
 
       for (var index = 0; index < initialLetterCount; index++) {
@@ -494,11 +564,12 @@ void main() {
     },
   );
 
-  testWidgets('levels 1 and 2 still auto advance after success', (
+  testWidgets('level 1 uses the full celebration sequence before advancing', (
     tester,
   ) async {
     final repository = LetterRepository();
-    final audioService = RecordingAudioService();
+    final audioService = ControlledRecordingAudioService();
+    final gameAudio = RecordingAlphabeticPrincipleAudio();
     final gameState = AlphabeticPrincipleState(
       letterRepository: repository,
       words: const [
@@ -515,34 +586,146 @@ void main() {
       ],
       random: Random(0),
     );
-    addTearDown(gameState.dispose);
+    addTearDown(() {
+      gameAudio.completeAllCelebrations();
+      audioService.completeAllAwaitedPlayback();
+      gameState.dispose();
+    });
 
     await pumpAlphabeticPrincipleScreen(
       tester,
       audioService: audioService,
       gameState: gameState,
+      gameAudio: gameAudio,
       letterRepository: repository,
     );
     final initialWord = gameState.currentWord.word;
+    final initialLetters = gameState.currentWord.letters;
     final nextWord = ['sol', 'ape'].firstWhere((word) => word != initialWord);
 
     audioService.playedAssets.clear();
     final correctChoice = gameState.choices.firstWhere(
-      (choice) => choice.letter == gameState.currentWord.letters.first,
+      (choice) =>
+          choice.letter ==
+          gameState.currentWord.letters[gameState.missingIndex],
     );
     gameState.selectChoice(correctChoice);
     await tester.pump();
 
     expect(gameState.showSuccess, isTrue);
-    expect(find.text('Bra jobba!'), findsOneWidget);
+    expect(audioService.playedAssets, isEmpty);
+    expect(
+      find.byKey(const ValueKey('alphabetic-principle-confetti')),
+      findsOneWidget,
+    );
+    expect(find.text('Bra jobba!'), findsNothing);
+    expect(gameAudio.celebrationCalls, 1);
+    expect(gameAudio.pendingCelebrationCount, 1);
 
-    await tester.pump(AlphabeticPrincipleState.autoAdvanceDelay);
+    gameAudio.completeNextCelebration();
+    await tester.pump();
+
+    for (var index = 0; index < initialLetters.length; index++) {
+      expect(
+        audioService.playedAssets[index],
+        repository.getByCharacter(initialLetters[index]).soundAssetPath,
+      );
+      expect(
+        find.byKey(ValueKey('alphabetic-slot-pulsing-$index')),
+        findsOneWidget,
+      );
+
+      audioService.completeNextAwaitedPlayback();
+      if (index == initialLetters.length - 1) {
+        await tester.pump();
+      } else {
+        await tester.pump(_celebrationGap);
+      }
+    }
+
+    expect(audioService.pendingAwaitCount, 1);
+    expect(
+      audioService.playedAssets.last,
+      gameState.currentWord.audioAssetPath,
+    );
+
+    audioService.completeNextAwaitedPlayback();
+    await tester.pump();
+    await tester.pump(_postWordPause - const Duration(milliseconds: 1));
+    expect(gameState.currentWord.word, initialWord);
+    expect(gameState.showSuccess, isTrue);
+
+    await tester.pump(const Duration(milliseconds: 1));
     await tester.pump();
 
     expect(gameState.currentWord.word, nextWord);
     expect(gameState.showSuccess, isFalse);
-    expect(audioService.playedAssets, ['assets/audio/words/$nextWord.mp3']);
+    expect(audioService.playedAssets.last, 'assets/audio/words/$nextWord.mp3');
   });
+
+  testWidgets(
+    'tapping during celebration skips straight to the next question',
+    (tester) async {
+      final repository = LetterRepository();
+      final audioService = ControlledRecordingAudioService();
+      final gameAudio = RecordingAlphabeticPrincipleAudio();
+      final gameState = AlphabeticPrincipleState(
+        letterRepository: repository,
+        words: const [
+          AlphabeticWord(
+            word: 'sol',
+            emoji: 'SUN',
+            audioAssetPath: 'assets/audio/words/sol.mp3',
+          ),
+          AlphabeticWord(
+            word: 'ape',
+            emoji: 'APE',
+            audioAssetPath: 'assets/audio/words/ape.mp3',
+          ),
+        ],
+        random: Random(0),
+      );
+      addTearDown(() {
+        gameAudio.completeAllCelebrations();
+        audioService.completeAllAwaitedPlayback();
+        gameState.dispose();
+      });
+
+      await pumpAlphabeticPrincipleScreen(
+        tester,
+        audioService: audioService,
+        gameState: gameState,
+        gameAudio: gameAudio,
+        letterRepository: repository,
+      );
+      final initialWord = gameState.currentWord.word;
+      final nextWord = ['sol', 'ape'].firstWhere((word) => word != initialWord);
+
+      audioService.playedAssets.clear();
+      final correctChoice = gameState.choices.firstWhere(
+        (choice) =>
+            choice.letter ==
+            gameState.currentWord.letters[gameState.missingIndex],
+      );
+      gameState.selectChoice(correctChoice);
+      await tester.pump();
+
+      expect(gameState.showSuccess, isTrue);
+      expect(gameAudio.pendingCelebrationCount, 1);
+
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pump();
+      await tester.pump();
+
+      expect(gameAudio.stopCelebrationCalls, 1);
+      expect(gameState.currentWord.word, nextWord);
+      expect(gameState.showSuccess, isFalse);
+      expect(
+        audioService.playedAssets.last,
+        'assets/audio/words/$nextWord.mp3',
+      );
+    },
+  );
 }
 
 Future<void> pumpAlphabeticPrincipleScreen(
@@ -625,6 +808,9 @@ class SilentAlphabeticPrincipleAudio extends AlphabeticPrincipleAudio {
   Future<void> playWrong() async {}
 
   @override
+  Future<void> stopCelebration() async {}
+
+  @override
   Future<void> dispose() async {}
 }
 
@@ -633,10 +819,36 @@ const _postWordPause = Duration(seconds: 2);
 
 class RecordingAlphabeticPrincipleAudio extends SilentAlphabeticPrincipleAudio {
   int celebrationCalls = 0;
+  int stopCelebrationCalls = 0;
+  final Queue<Completer<void>> _pendingCelebrations = Queue<Completer<void>>();
+
+  int get pendingCelebrationCount => _pendingCelebrations.length;
 
   @override
   Future<void> playCelebration() async {
     celebrationCalls++;
+    final completer = Completer<void>();
+    _pendingCelebrations.add(completer);
+    await completer.future;
+  }
+
+  @override
+  Future<void> stopCelebration() async {
+    stopCelebrationCalls++;
+    completeAllCelebrations();
+  }
+
+  void completeNextCelebration() {
+    if (_pendingCelebrations.isEmpty) {
+      throw StateError('No celebration playback is pending.');
+    }
+    _pendingCelebrations.removeFirst().complete();
+  }
+
+  void completeAllCelebrations() {
+    while (_pendingCelebrations.isNotEmpty) {
+      _pendingCelebrations.removeFirst().complete();
+    }
   }
 }
 

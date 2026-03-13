@@ -14,8 +14,9 @@ class FindLetterState extends ChangeNotifier {
     : _letters = letterRepository.letters;
 
   static const int visibleLevel = 0;
-  static const int questionMarkLevel = 1;
-  static const int maxLevel = questionMarkLevel;
+  static const int fadeToAudioLevel = 1;
+  static const int audioOnlyLevel = 2;
+  static const int maxLevel = audioOnlyLevel;
 
   final List<NorwegianLetter> _letters;
   final Random _random = Random();
@@ -52,7 +53,8 @@ class FindLetterState extends ChangeNotifier {
   int _highestLevel = 0;
   int get level => _level;
   int get highestLevel => _highestLevel;
-  bool get isQuestionMarkMode => _level == questionMarkLevel;
+  bool get isFadeToAudioMode => _level == fadeToAudioLevel;
+  bool get isAudioOnlyMode => _level == audioOnlyLevel;
 
   int _wrongIdx = -1;
   int get wrongAnswerIndex => _wrongIdx;

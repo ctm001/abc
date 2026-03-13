@@ -24,14 +24,14 @@ void main() {
 
     expect(audioService.playedAssets, hasLength(1));
 
-    await tester.tap(find.text('Nivå 2'));
+    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
     await tester.pump();
     await tester.pump();
 
     expect(audioService.playedAssets, hasLength(2));
   });
 
-  testWidgets('level selector only cycles through the two supported levels', (
+  testWidgets('level selector only cycles through the three supported levels', (
     tester,
   ) async {
     final audioService = RecordingAudioService();
@@ -42,21 +42,25 @@ void main() {
       prefs: const {'highest_level': 7},
     );
 
-    expect(find.text('Nivå 2'), findsOneWidget);
-    expect(find.text('Nivå 3'), findsNothing);
+    expect(currentLevelLabel(tester), endsWith('3'));
 
-    await tester.tap(find.text('Nivå 2'));
+    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Nivå 1'), findsOneWidget);
+    expect(currentLevelLabel(tester), endsWith('1'));
 
-    await tester.tap(find.text('Nivå 1'));
+    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Nivå 2'), findsOneWidget);
-    expect(find.text('Nivå 3'), findsNothing);
+    expect(currentLevelLabel(tester), endsWith('2'));
+
+    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
+    await tester.pump();
+    await tester.pump();
+
+    expect(currentLevelLabel(tester), endsWith('3'));
   });
 
   testWidgets('target display grows on roomy layouts', (tester) async {
@@ -89,7 +93,10 @@ void main() {
       tester.getTopLeft(find.byIcon(Icons.arrow_back_rounded)).dx,
       lessThan(40),
     );
-    expect(tester.getTopRight(find.textContaining('Niv')).dx, greaterThan(850));
+    expect(
+      tester.getTopRight(find.byKey(const ValueKey('game-level-switcher'))).dx,
+      greaterThan(850),
+    );
   });
 
   testWidgets(
@@ -117,14 +124,14 @@ void main() {
       }
 
       expect(find.text('GRATULERER!'), findsOneWidget);
-      expect(find.text('Nivå 2'), findsNothing);
+      expect(find.textContaining('Niv'), findsNothing);
 
       await tester.pump(GameTimings.goldCoinRevealDelay);
       await tester.tapAt(tester.getCenter(find.byType(Scaffold)));
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('Nivå 2'), findsOneWidget);
+      expect(currentLevelLabel(tester), endsWith('2'));
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('highest_level'), 1);
@@ -152,6 +159,42 @@ void main() {
       await tester.pump();
     },
   );
+
+  testWidgets('level 3 target is speaker-only with no visible letter', (
+    tester,
+  ) async {
+    final audioService = RecordingAudioService();
+    final letterRepository = LetterRepository();
+    final gameState = FindLetterState(letterRepository: letterRepository);
+
+    await pumpLetterMatchingScreen(
+      tester,
+      audioService: audioService,
+      letterRepository: letterRepository,
+      gameState: gameState,
+      prefs: const {'highest_level': 2},
+    );
+
+    expect(gameState.level, FindLetterState.audioOnlyLevel);
+    expect(
+      tester
+          .widget<Opacity>(
+            find.byKey(const ValueKey('letter-matching-target-letter-layer')),
+          )
+          .opacity,
+      0,
+    );
+    expect(
+      tester
+          .widget<Opacity>(
+            find.byKey(const ValueKey('letter-matching-target-audio-layer')),
+          )
+          .opacity,
+      1,
+    );
+
+    gameState.dispose();
+  });
 }
 
 Future<void> pumpLetterMatchingScreen(
@@ -176,6 +219,17 @@ Future<void> pumpLetterMatchingScreen(
   );
   await tester.pump();
   await tester.pump();
+}
+
+String currentLevelLabel(WidgetTester tester) {
+  return tester
+      .widget<Text>(
+        find.descendant(
+          of: find.byKey(const ValueKey('game-level-switcher')),
+          matching: find.byType(Text),
+        ),
+      )
+      .data!;
 }
 
 class RecordingAudioService extends AudioService {

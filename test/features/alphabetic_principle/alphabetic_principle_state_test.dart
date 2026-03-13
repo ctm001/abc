@@ -169,7 +169,7 @@ void main() {
       for (var round = 0; round < 4; round++) {
         seenWords.add(state.currentWord.word);
         _completeCurrentBuildWord(state);
-        state.finishBuildWordCelebration(state.celebrationToken);
+        state.finishCelebration(state.celebrationToken);
       }
 
       expect(seenWords.toSet(), {'ape', 'bok', 'sol', 'lam'});
@@ -177,55 +177,60 @@ void main() {
     });
 
     test(
-      'level 3 waits for the spelling celebration to finish before advancing',
+      'all levels wait for the celebration to finish before advancing',
       () async {
-        final state = AlphabeticPrincipleState(
-          letterRepository: LetterRepository(),
-          words: const [
-            AlphabeticWord(
-              word: 'katt',
-              emoji: 'CAT',
-              audioAssetPath: 'assets/audio/words/katt.mp3',
-            ),
-            AlphabeticWord(
-              word: 'sol',
-              emoji: 'SUN',
-              audioAssetPath: 'assets/audio/words/sol.mp3',
-            ),
-          ],
-          random: Random(0),
-        );
-        addTearDown(state.dispose);
+        for (final level in [0, 1, 2]) {
+          final state = AlphabeticPrincipleState(
+            letterRepository: LetterRepository(),
+            words: const [
+              AlphabeticWord(
+                word: 'katt',
+                emoji: 'CAT',
+                audioAssetPath: 'assets/audio/words/katt.mp3',
+              ),
+              AlphabeticWord(
+                word: 'sol',
+                emoji: 'SUN',
+                audioAssetPath: 'assets/audio/words/sol.mp3',
+              ),
+            ],
+            random: Random(0),
+          );
+          addTearDown(state.dispose);
 
-        state.start();
-        state.playLevel(2);
-        final initialWord = state.currentWord.word;
-        final nextWord = [
-          'katt',
-          'sol',
-        ].firstWhere((word) => word != initialWord);
-        final audioCueTokenBeforeCelebration = state.audioCueToken;
+          state.start();
+          state.playLevel(level);
+          final initialWord = state.currentWord.word;
+          final nextWord = [
+            'katt',
+            'sol',
+          ].firstWhere((word) => word != initialWord);
+          final audioCueTokenBeforeCelebration = state.audioCueToken;
 
-        _completeCurrentBuildWord(state);
+          if (level == 2) {
+            _completeCurrentBuildWord(state);
+          } else {
+            state.selectChoice(
+              _choiceFor(state, state.currentWord.letters[state.missingIndex]),
+            );
+          }
 
-        final celebrationToken = state.celebrationToken;
-        expect(state.showSuccess, isTrue);
-        expect(celebrationToken, 1);
+          final celebrationToken = state.celebrationToken;
+          expect(state.showSuccess, isTrue);
+          expect(celebrationToken, 1);
 
-        await Future<void>.delayed(
-          AlphabeticPrincipleState.autoAdvanceDelay +
-              const Duration(milliseconds: 150),
-        );
+          await Future<void>.delayed(const Duration(milliseconds: 1100));
 
-        expect(state.currentWord.word, initialWord);
-        expect(state.showSuccess, isTrue);
-        expect(state.audioCueToken, audioCueTokenBeforeCelebration);
+          expect(state.currentWord.word, initialWord);
+          expect(state.showSuccess, isTrue);
+          expect(state.audioCueToken, audioCueTokenBeforeCelebration);
 
-        state.finishBuildWordCelebration(celebrationToken);
+          state.finishCelebration(celebrationToken);
 
-        expect(state.currentWord.word, nextWord);
-        expect(state.showSuccess, isFalse);
-        expect(state.audioCueToken, audioCueTokenBeforeCelebration + 1);
+          expect(state.currentWord.word, nextWord);
+          expect(state.showSuccess, isFalse);
+          expect(state.audioCueToken, audioCueTokenBeforeCelebration + 1);
+        }
       },
     );
   });

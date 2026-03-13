@@ -39,26 +39,35 @@ void main() {
     state.dispose();
   });
 
-  test('dismissGoldCoin only unlocks the question-mark mode once', () async {
-    final state = createState();
+  test(
+    'dismissGoldCoin unlocks one level at a time up to speaker-only',
+    () async {
+      final state = createState();
 
-    state.playLevel(FindLetterState.visibleLevel);
-    state.dismissGoldCoin();
-    await Future<void>.delayed(const Duration(milliseconds: 10));
+      state.playLevel(FindLetterState.visibleLevel);
+      state.dismissGoldCoin();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
 
-    expect(state.level, FindLetterState.questionMarkLevel);
-    expect(state.highestLevel, FindLetterState.questionMarkLevel);
+      expect(state.level, FindLetterState.fadeToAudioLevel);
+      expect(state.highestLevel, FindLetterState.fadeToAudioLevel);
 
-    state.dismissGoldCoin();
-    await Future<void>.delayed(const Duration(milliseconds: 10));
+      state.dismissGoldCoin();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
 
-    final prefs = await SharedPreferences.getInstance();
-    expect(state.level, FindLetterState.questionMarkLevel);
-    expect(state.highestLevel, FindLetterState.questionMarkLevel);
-    expect(prefs.getInt('highest_level'), FindLetterState.questionMarkLevel);
+      expect(state.level, FindLetterState.audioOnlyLevel);
+      expect(state.highestLevel, FindLetterState.audioOnlyLevel);
 
-    state.dispose();
-  });
+      state.dismissGoldCoin();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(state.level, FindLetterState.audioOnlyLevel);
+      expect(state.highestLevel, FindLetterState.audioOnlyLevel);
+      expect(prefs.getInt('highest_level'), FindLetterState.audioOnlyLevel);
+
+      state.dispose();
+    },
+  );
 
   test('crumble reset does not run after dispose', () async {
     final state = createState();

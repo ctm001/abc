@@ -27,7 +27,6 @@ class AlphabeticPrincipleState extends ChangeNotifier {
        _words = List<AlphabeticWord>.unmodifiable(words),
        _random = random ?? Random();
 
-  static const autoAdvanceDelay = Duration(milliseconds: 950);
   static const wrongAnswerReset = Duration(milliseconds: 450);
 
   final LetterRepository _letterRepository;
@@ -88,8 +87,8 @@ class AlphabeticPrincipleState extends ChangeNotifier {
     notifyListeners();
   }
 
-  void finishBuildWordCelebration(int token) {
-    if (!_showSuccess || !isBuildWordLevel || _celebrationToken != token) {
+  void finishCelebration(int token) {
+    if (!_showSuccess || _celebrationToken != token) {
       return;
     }
     nextRound();
@@ -294,13 +293,8 @@ class AlphabeticPrincipleState extends ChangeNotifier {
     _advanceTimer?.cancel();
     _showSuccess = true;
     _clearWrongChoice();
-    if (isBuildWordLevel) {
-      _celebrationToken++;
-      notifyListeners();
-      return;
-    }
+    _celebrationToken++;
     notifyListeners();
-    _advanceTimer = Timer(autoAdvanceDelay, nextRound);
   }
 
   void _markWrongChoice(String choiceId) {

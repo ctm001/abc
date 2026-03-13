@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show lerpDouble;
 
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/audio/audio_service.dart';
 import '../../../core/presentation/animated_background.dart';
+import '../../../core/presentation/game_level_switcher.dart';
 import '../../../core/routing/route_names.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/repositories/letter_repository.dart';
@@ -35,15 +37,19 @@ class AlphabeticPrincipleScreen extends StatefulWidget {
       _AlphabeticPrincipleScreenState();
 }
 
-class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
+class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen>
+    with SingleTickerProviderStateMixin {
   static const _celebrationLetterGap = Duration(milliseconds: 120);
+  static const _celebrationVisualDuration = Duration(seconds: 2);
   static const _postWordPause = Duration(seconds: 2);
   static const _horizontalContentPadding = 32.0;
   static const _maxContentWidth = 760.0;
+  static const _layoutSafetyMargin = 8.0;
 
   late final AlphabeticPrincipleState _game;
   late final AlphabeticPrincipleAudio _audio;
   late final ConfettiController _confettiController;
+  late final AnimationController _celebrationFadeController;
   late final bool _ownsGame;
   int _lastPromptToken = 0;
   int _lastCelebrationToken = 0;
@@ -59,23 +65,31 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
         AlphabeticPrincipleState(letterRepository: widget.letterRepository);
     _audio = widget.gameAudio ?? AlphabeticPrincipleAudio();
     _confettiController = ConfettiController(
-      duration: const Duration(seconds: 1),
+      duration: _celebrationVisualDuration,
+    );
+    _celebrationFadeController = AnimationController(
+      vsync: this,
+      duration: _celebrationVisualDuration,
     );
     _game.addListener(_handleGameChanged);
     _game.start();
   }
 
   void _handleGameChanged() {
-    if (_game.showSuccess && _game.isBuildWordLevel) {
+    if (_game.showSuccess) {
       if (_lastCelebrationToken != _game.celebrationToken) {
         _lastCelebrationToken = _game.celebrationToken;
         _runningCelebrationToken = _game.celebrationToken;
         _confettiController.play();
-        unawaited(_audio.playCelebration());
-        unawaited(_runBuildWordCelebration(_game.celebrationToken));
+        _celebrationFadeController
+          ..stop()
+          ..reset()
+          ..forward();
+        unawaited(_runCelebrationSequence(_game.celebrationToken));
       }
     } else {
       _confettiController.stop();
+      _celebrationFadeController.stop();
       _setActiveCelebrationSlotIndex(null);
     }
 
@@ -94,20 +108,24 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
     });
   }
 
-  bool _isCurrentBuildCelebration(int token) =>
+  bool _isCurrentCelebration(int token) =>
       mounted &&
       _runningCelebrationToken == token &&
       _game.showSuccess &&
-      _game.isBuildWordLevel &&
       _game.celebrationToken == token;
 
-  Future<void> _runBuildWordCelebration(int token) async {
+  Future<void> _runCelebrationSequence(int token) async {
     final word = _game.currentWord;
     final letters = word.letters;
 
     try {
+      await _audio.playCelebration();
+      if (!_isCurrentCelebration(token)) {
+        return;
+      }
+
       for (var index = 0; index < letters.length; index++) {
-        if (!_isCurrentBuildCelebration(token)) {
+        if (!_isCurrentCelebration(token)) {
           return;
         }
 
@@ -115,7 +133,7 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
         final letter = widget.letterRepository.getByCharacter(letters[index]);
         await widget.audioService.playLetterSoundAndWait(letter.soundAssetPath);
 
-        if (!_isCurrentBuildCelebration(token)) {
+        if (!_isCurrentCelebration(token)) {
           return;
         }
 
@@ -126,26 +144,24 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
         await Future<void>.delayed(_celebrationLetterGap);
       }
 
-      if (!_isCurrentBuildCelebration(token)) {
+      if (!_isCurrentCelebration(token)) {
         return;
       }
 
       _setActiveCelebrationSlotIndex(null);
       await widget.audioService.playLetterSoundAndWait(word.audioAssetPath);
-      if (!_isCurrentBuildCelebration(token)) {
+      if (!_isCurrentCelebration(token)) {
         return;
       }
 
       await Future<void>.delayed(_postWordPause);
-      if (!_isCurrentBuildCelebration(token)) {
+      if (!_isCurrentCelebration(token)) {
         return;
       }
 
-      _game.finishBuildWordCelebration(token);
+      _game.finishCelebration(token);
     } finally {
-      if (mounted &&
-          _runningCelebrationToken == token &&
-          (!_game.showSuccess || !_game.isBuildWordLevel)) {
+      if (mounted && _runningCelebrationToken == token && !_game.showSuccess) {
         _setActiveCelebrationSlotIndex(null);
       }
     }
@@ -160,6 +176,15 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
     });
   }
 
+  void _skipCelebrationSequence() {
+    if (!_game.showSuccess) {
+      return;
+    }
+
+    unawaited(_audio.stopCelebration());
+    _game.finishCelebration(_runningCelebrationToken);
+  }
+
   @override
   void dispose() {
     _game.removeListener(_handleGameChanged);
@@ -167,6 +192,7 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
       _game.dispose();
     }
     _confettiController.dispose();
+    _celebrationFadeController.dispose();
     unawaited(_audio.dispose());
     super.dispose();
   }
@@ -187,7 +213,7 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
 
     unawaited(_audio.playTap());
     if (_game.selectChoice(choice)) {
-      if (!(_game.showSuccess && _game.isBuildWordLevel)) {
+      if (!_game.showSuccess) {
         unawaited(_audio.playSuccess());
       }
     } else {
@@ -217,6 +243,7 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
             _Header(
               currentLevel: _game.level,
               highestLevel: _game.highestLevel,
+              titleText: _game.titleText,
               onLevelChanged: _game.playLevel,
               onBack: () {
                 if (context.canPop()) {
@@ -229,18 +256,47 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
+                  const contentPadding = EdgeInsets.fromLTRB(16, 8, 16, 24);
+                  final contentWidth = _contentWidth(constraints.maxWidth);
+                  final availableContentHeight = math.max(
+                    0.0,
+                    constraints.maxHeight - contentPadding.vertical,
+                  );
+                  final layout = _buildContentLayout(
+                    availableWidth: contentWidth,
+                    availableHeight: math.max(
+                      0.0,
+                      availableContentHeight - _layoutSafetyMargin,
+                    ),
+                    slotCount: _game.slots.length,
+                    totalChoices: _game.isBuildWordLevel
+                        ? _game.currentWord.letters.length
+                        : 4,
+                    isBuildWordLevel: _game.isBuildWordLevel,
+                  );
+                  final content = ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: _maxContentWidth,
+                    ),
+                    child: _buildContent(layout),
+                  );
+
+                  if (layout.contentHeight <=
+                      availableContentHeight - _layoutSafetyMargin) {
+                    return Padding(
+                      padding: contentPadding,
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: content,
+                      ),
+                    );
+                  }
+
                   return SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight - 32,
-                      ),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 760),
-                          child: _buildContent(context, constraints.maxWidth),
-                        ),
-                      ),
+                    padding: contentPadding,
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: content,
                     ),
                   );
                 },
@@ -248,83 +304,66 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
             ),
           ],
         ),
-        if (_game.showSuccess && _game.isBuildWordLevel)
+        if (_game.showSuccess)
           Positioned.fill(
-            child: IgnorePointer(
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: ConfettiWidget(
-                  key: const ValueKey('alphabetic-principle-confetti'),
-                  confettiController: _confettiController,
-                  blastDirectionality: BlastDirectionality.explosive,
-                  shouldLoop: false,
-                  colors: AppColors.confetti,
-                  numberOfParticles: 30,
-                  gravity: 0.3,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _skipCelebrationSequence,
+              child: AnimatedBuilder(
+                animation: _celebrationFadeController,
+                builder: (context, child) {
+                  final opacity =
+                      1 -
+                      Curves.easeOutQuart.transform(
+                        _celebrationFadeController.value,
+                      );
+                  if (opacity <= 0) {
+                    return const SizedBox.shrink();
+                  }
+                  return Opacity(opacity: opacity, child: child);
+                },
+                child: IgnorePointer(
+                  child: Center(
+                    child: _SubtleCelebrationOverlay(
+                      confettiController: _confettiController,
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        if (_game.showSuccess && !_game.isBuildWordLevel)
-          const Positioned.fill(child: _SuccessOverlay()),
       ],
     );
   }
 
-  Widget _buildContent(BuildContext context, double availableWidth) {
-    final contentWidth = _contentWidth(availableWidth);
-    final cardSize = math.min(contentWidth * 0.55, 290).clamp(210.0, 290.0);
-    final slotSize = math.min(contentWidth / 5.4, 82).clamp(56.0, 82.0);
-    final choiceLayout = _choiceLayoutMetrics(
-      availableWidth: contentWidth,
-      totalChoices: _game.isBuildWordLevel
-          ? _game.currentWord.letters.length
-          : 4,
-      isBuildWordLevel: _game.isBuildWordLevel,
-    );
-
+  Widget _buildContent(_ContentLayoutMetrics layout) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          _game.titleText,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.aBeeZee(
-            fontSize: 28,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textOlive,
-          ),
-        ),
-        const SizedBox(height: 24),
         _WordCard(
           emoji: _game.currentWord.emoji,
           onReplay: _playPrompt,
-          size: cardSize.toDouble(),
+          size: layout.cardSize,
         ),
-        const SizedBox(height: 24),
+        SizedBox(height: layout.cardToSlotsGap),
         _WordSlots(
           slots: _game.slots,
           missingIndex: _game.missingIndex,
           activeSlotIndex: _game.activeSlotIndex,
           isBuildWordLevel: _game.isBuildWordLevel,
-          celebrationSlotIndex: _game.showSuccess && _game.isBuildWordLevel
+          celebrationSlotIndex: _game.showSuccess
               ? _activeCelebrationSlotIndex
               : null,
-          slotSize: slotSize.toDouble(),
+          slotSize: layout.slotSize,
+          spacing: layout.slotSpacing,
         ),
-        const SizedBox(height: 28),
-        SizedBox(
-          height: choiceLayout.height,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: _ChoiceBank(
-              choices: _game.choices,
-              wrongChoiceId: _game.wrongChoiceId,
-              onChoiceTapped: _onChoiceTapped,
-              choiceSize: choiceLayout.size,
-              spacing: choiceLayout.spacing,
-            ),
-          ),
+        SizedBox(height: layout.slotsToChoicesGap),
+        _ChoiceBank(
+          choices: _game.choices,
+          wrongChoiceId: _game.wrongChoiceId,
+          onChoiceTapped: _onChoiceTapped,
+          choiceSize: layout.choiceSize,
+          spacing: layout.choiceSpacing,
         ),
       ],
     );
@@ -338,14 +377,93 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
     return math.min(paddedWidth, _maxContentWidth);
   }
 
+  _ContentLayoutMetrics _buildContentLayout({
+    required double availableWidth,
+    required double availableHeight,
+    required int slotCount,
+    required int totalChoices,
+    required bool isBuildWordLevel,
+  }) {
+    final widthBasedCardSize = math
+        .min(availableWidth * 0.55, 290)
+        .clamp(210.0, 290.0);
+    final widthBasedSlotSize = math
+        .min(availableWidth / 5.4, 82)
+        .clamp(56.0, 82.0);
+
+    _ContentLayoutMetrics metricsForScale(double scale) {
+      final cardSize = (widthBasedCardSize * scale).clamp(180.0, 290.0);
+      final slotSize = (widthBasedSlotSize * scale).clamp(
+        isBuildWordLevel ? 42.0 : 52.0,
+        82.0,
+      );
+      final slotSpacing = (12.0 * scale).clamp(8.0, 12.0);
+      final cardToSlotsGap = lerpDouble(16.0, 24.0, scale)!;
+      final slotsToChoicesGap = lerpDouble(18.0, 28.0, scale)!;
+      final choiceLayout = _choiceLayoutMetrics(
+        availableWidth: availableWidth,
+        totalChoices: totalChoices,
+        isBuildWordLevel: isBuildWordLevel,
+        scale: scale,
+      );
+      final slotsHeight = _wrapHeight(
+        itemCount: slotCount,
+        itemExtent: slotSize,
+        spacing: slotSpacing,
+        availableWidth: availableWidth,
+      );
+
+      return _ContentLayoutMetrics(
+        cardSize: cardSize,
+        cardToSlotsGap: cardToSlotsGap,
+        slotSize: slotSize,
+        slotSpacing: slotSpacing,
+        slotsToChoicesGap: slotsToChoicesGap,
+        choiceSize: choiceLayout.size,
+        choiceSpacing: choiceLayout.spacing,
+        contentHeight:
+            cardSize +
+            cardToSlotsGap +
+            slotsHeight +
+            slotsToChoicesGap +
+            choiceLayout.height,
+      );
+    }
+
+    var low = 0.62;
+    var high = 1.0;
+    var best = metricsForScale(low);
+
+    for (var i = 0; i < 14; i++) {
+      final mid = (low + high) / 2;
+      final candidate = metricsForScale(mid);
+      if (candidate.contentHeight <= availableHeight) {
+        best = candidate;
+        low = mid;
+      } else {
+        high = mid;
+      }
+    }
+
+    final fullSize = metricsForScale(1.0);
+    return fullSize.contentHeight <= availableHeight ? fullSize : best;
+  }
+
   _ChoiceLayoutMetrics _choiceLayoutMetrics({
     required double availableWidth,
     required int totalChoices,
     required bool isBuildWordLevel,
+    double scale = 1,
   }) {
-    final spacing = isBuildWordLevel ? 10.0 : 16.0;
-    final maxChoiceSize = 92.0;
-    final minChoiceSize = isBuildWordLevel ? 42.0 : 70.0;
+    final spacing = ((isBuildWordLevel ? 10.0 : 16.0) * scale).clamp(
+      8.0,
+      isBuildWordLevel ? 10.0 : 16.0,
+    );
+    final maxChoiceSize = (92.0 * scale).clamp(52.0, 92.0);
+    final minChoiceSize = ((isBuildWordLevel ? 42.0 : 70.0) * scale).clamp(
+      38.0,
+      isBuildWordLevel ? 42.0 : 70.0,
+    );
     final contentWidth = math.max(0.0, availableWidth);
     final singleRowSize =
         (contentWidth - (spacing * (totalChoices - 1))) / totalChoices;
@@ -366,6 +484,20 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen> {
       height: (rows * choiceSize) + ((rows - 1) * spacing),
     );
   }
+
+  double _wrapHeight({
+    required int itemCount,
+    required double itemExtent,
+    required double spacing,
+    required double availableWidth,
+  }) {
+    final columns = math.max(
+      1,
+      ((availableWidth + spacing) / (itemExtent + spacing)).floor(),
+    );
+    final rows = (itemCount / columns).ceil();
+    return (rows * itemExtent) + ((rows - 1) * spacing);
+  }
 }
 
 class _ChoiceLayoutMetrics {
@@ -380,79 +512,82 @@ class _ChoiceLayoutMetrics {
   final double height;
 }
 
+class _ContentLayoutMetrics {
+  const _ContentLayoutMetrics({
+    required this.cardSize,
+    required this.cardToSlotsGap,
+    required this.slotSize,
+    required this.slotSpacing,
+    required this.slotsToChoicesGap,
+    required this.choiceSize,
+    required this.choiceSpacing,
+    required this.contentHeight,
+  });
+
+  final double cardSize;
+  final double cardToSlotsGap;
+  final double slotSize;
+  final double slotSpacing;
+  final double slotsToChoicesGap;
+  final double choiceSize;
+  final double choiceSpacing;
+  final double contentHeight;
+}
+
 class _Header extends StatelessWidget {
   const _Header({
     required this.currentLevel,
     required this.highestLevel,
+    required this.titleText,
     required this.onLevelChanged,
     required this.onBack,
   });
 
   final int currentLevel;
   final int highestLevel;
+  final String titleText;
   final ValueChanged<int> onLevelChanged;
   final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(8),
-      child: SizedBox(
-        height: 50,
-        child: Row(
-          children: [
-            _BackButton(onTap: onBack),
-            const Spacer(),
-            _LevelChip(
-              currentLevel: currentLevel,
-              highestLevel: highestLevel,
-              onLevelChanged: onLevelChanged,
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            height: 50,
+            child: Row(
+              children: [
+                _BackButton(onTap: onBack),
+                const Spacer(),
+                GameLevelSwitcher(
+                  currentLevel: currentLevel,
+                  highestLevel: highestLevel,
+                  onTap: () {
+                    onLevelChanged((currentLevel + 1) % (highestLevel + 1));
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LevelChip extends StatelessWidget {
-  const _LevelChip({
-    required this.currentLevel,
-    required this.highestLevel,
-    required this.onLevelChanged,
-  });
-
-  final int currentLevel;
-  final int highestLevel;
-  final ValueChanged<int> onLevelChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onLevelChanged((currentLevel + 1) % (highestLevel + 1)),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.alphabeticPrinciple,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.textDark.withValues(alpha: 0.15)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.tune_rounded, size: 18, color: Colors.white),
-            const SizedBox(width: 6),
-            Text(
-              'Nivå ${currentLevel + 1}',
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 52),
+            child: Text(
+              titleText,
+              textAlign: TextAlign.center,
+              maxLines: 2,
               style: GoogleFonts.aBeeZee(
-                fontSize: 14,
+                fontSize: 28,
+                height: 1.2,
                 fontWeight: FontWeight.w700,
-                color: Colors.white,
+                color: AppColors.textOlive,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -578,6 +713,7 @@ class _WordSlots extends StatelessWidget {
     required this.isBuildWordLevel,
     required this.celebrationSlotIndex,
     required this.slotSize,
+    required this.spacing,
   });
 
   final List<String?> slots;
@@ -586,13 +722,14 @@ class _WordSlots extends StatelessWidget {
   final bool isBuildWordLevel;
   final int? celebrationSlotIndex;
   final double slotSize;
+  final double spacing;
 
   @override
   Widget build(BuildContext context) {
     return Wrap(
       alignment: WrapAlignment.center,
-      spacing: 12,
-      runSpacing: 12,
+      spacing: spacing,
+      runSpacing: spacing,
       children: List<Widget>.generate(slots.length, (index) {
         final letter = slots[index];
         final isActive = isBuildWordLevel && index == activeSlotIndex;
@@ -800,50 +937,85 @@ class _ChoiceButton extends StatelessWidget {
   }
 }
 
-class _SuccessOverlay extends StatelessWidget {
-  const _SuccessOverlay();
+class _SubtleCelebrationOverlay extends StatelessWidget {
+  const _SubtleCelebrationOverlay({required this.confettiController});
+
+  final ConfettiController confettiController;
+
+  static final _sparkleColors = AppColors.confetti
+      .map((color) => color.withValues(alpha: 0.72))
+      .toList(growable: false);
 
   @override
   Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: ColoredBox(
-        color: Colors.black.withValues(alpha: 0.04),
-        child: Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+    return SizedBox(
+      key: const ValueKey('alphabetic-principle-confetti'),
+      width: 220,
+      height: 220,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.94),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.alphabeticPrinciple.withValues(alpha: 0.18),
-                  blurRadius: 22,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  AppColors.alphabeticPrinciple.withValues(alpha: 0.12),
+                  AppColors.alphabeticPrinciple.withValues(alpha: 0),
+                ],
+              ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.check_circle_rounded,
-                  color: AppColors.success,
-                  size: 28,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'Bra jobba!',
-                  style: GoogleFonts.aBeeZee(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textOlive,
-                  ),
-                ),
-              ],
+            child: const SizedBox.expand(),
+          ),
+          Positioned(
+            left: 56,
+            top: 108,
+            child: ConfettiWidget(
+              confettiController: confettiController,
+              blastDirectionality: BlastDirectionality.directional,
+              blastDirection: -math.pi / 4,
+              shouldLoop: false,
+              colors: _sparkleColors,
+              numberOfParticles: 8,
+              emissionFrequency: 0.03,
+              minBlastForce: 2,
+              maxBlastForce: 6,
+              gravity: 0.09,
+              particleDrag: 0.04,
+              minimumSize: const Size.square(4),
+              maximumSize: const Size.square(8),
+              createParticlePath: _buildSparkleParticle,
             ),
           ),
-        ),
+          Positioned(
+            right: 56,
+            top: 108,
+            child: ConfettiWidget(
+              confettiController: confettiController,
+              blastDirectionality: BlastDirectionality.directional,
+              blastDirection: -3 * math.pi / 4,
+              shouldLoop: false,
+              colors: _sparkleColors,
+              numberOfParticles: 8,
+              emissionFrequency: 0.03,
+              minBlastForce: 2,
+              maxBlastForce: 6,
+              gravity: 0.09,
+              particleDrag: 0.04,
+              minimumSize: const Size.square(4),
+              maximumSize: const Size.square(8),
+              createParticlePath: _buildSparkleParticle,
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  static Path _buildSparkleParticle(Size size) {
+    final radius = size.shortestSide / 2;
+    return Path()..addOval(
+      Rect.fromCircle(center: Offset(radius, radius), radius: radius),
     );
   }
 }

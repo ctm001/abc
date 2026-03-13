@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer';
 
 import 'package:audioplayers/audioplayers.dart';
@@ -10,6 +11,7 @@ class AlphabeticPrincipleAudio {
   final AudioPlayer _celebrationPlayer = AudioPlayer();
   final AudioPlayer _wrongPlayer = AudioPlayer();
   bool _initialized = false;
+  Completer<void>? _activeCelebrationCompleter;
 
   Future<void> _init() async {
     if (_initialized) {
@@ -65,12 +67,30 @@ class AlphabeticPrincipleAudio {
         HapticFeedback.heavyImpact,
       );
     }
+    _completeActiveCelebration();
     try {
       await _celebrationPlayer.stop();
-      await _celebrationPlayer.play(
-        AssetSource('audio/sfx/celebration.wav'),
-        volume: 0.6,
-      );
+      final playbackCompleter = Completer<void>();
+      _activeCelebrationCompleter = playbackCompleter;
+      late final StreamSubscription<void> completionSubscription;
+      completionSubscription = _celebrationPlayer.onPlayerComplete.listen((_) {
+        if (!playbackCompleter.isCompleted) {
+          playbackCompleter.complete();
+        }
+      });
+
+      try {
+        await _celebrationPlayer.play(
+          AssetSource('audio/sfx/celebration.wav'),
+          volume: 0.6,
+        );
+        await playbackCompleter.future;
+      } finally {
+        if (_activeCelebrationCompleter == playbackCompleter) {
+          _activeCelebrationCompleter = null;
+        }
+        await completionSubscription.cancel();
+      }
     } catch (error, stackTrace) {
       log(
         'Failed to play alphabetic principle celebration sound',
@@ -78,6 +98,31 @@ class AlphabeticPrincipleAudio {
         stackTrace: stackTrace,
       );
     }
+  }
+
+  Future<void> stopCelebration() async {
+    if (!_initialized) {
+      return;
+    }
+
+    _completeActiveCelebration();
+    try {
+      await _celebrationPlayer.stop();
+    } catch (error, stackTrace) {
+      log(
+        'Failed to stop alphabetic principle celebration sound',
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
+  void _completeActiveCelebration() {
+    final playbackCompleter = _activeCelebrationCompleter;
+    if (playbackCompleter != null && !playbackCompleter.isCompleted) {
+      playbackCompleter.complete();
+    }
+    _activeCelebrationCompleter = null;
   }
 
   Future<void> playWrong() async {
@@ -94,6 +139,7 @@ class AlphabeticPrincipleAudio {
   }
 
   Future<void> dispose() async {
+    _completeActiveCelebration();
     await _tapPlayer.dispose();
     await _successPlayer.dispose();
     await _celebrationPlayer.dispose();

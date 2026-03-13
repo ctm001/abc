@@ -55,7 +55,7 @@ abstract final class GameTimings {
   static const falling = Duration(milliseconds: 1200);
   static const fallingFlail = Duration(milliseconds: 150);
   static const fallingFigureFreefallMs = 650;
-  static const fallingFigureParachuteMs = 950;
+  static const fallingFigureParachuteMs = 1250;
   static const fallingFigureFreefall = Duration(
     milliseconds: fallingFigureFreefallMs,
   );
@@ -65,7 +65,7 @@ abstract final class GameTimings {
   static const fallingFigureTotal = Duration(
     milliseconds: fallingFigureFreefallMs + fallingFigureParachuteMs,
   );
-  static const parachuteDescent = Duration(milliseconds: 3000);
+  static const parachuteDescent = Duration(milliseconds: 3900);
   static const parachuteSwing = Duration(milliseconds: 800);
   static const stackCrumbleStaggerMs = 80;
   static const goldCoinScale = Duration(milliseconds: 1000);

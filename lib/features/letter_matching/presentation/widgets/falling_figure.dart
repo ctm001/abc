@@ -170,6 +170,7 @@ class _FallingStickFigurePainter extends CustomPainter {
   final double flailPhase;
   final double parachuteProgress;
   final double swingPhase;
+  static const _limbScale = 0.55;
 
   double _mix(double from, double to, double progress) {
     return from + (to - from) * progress;
@@ -287,12 +288,12 @@ class _FallingStickFigurePainter extends CustomPainter {
     final headShake = sin(phase * 4) * 2 * flailStrength + swing * open * 1.5;
 
     const headY = 46.0;
-    const holdingHandSpread = 8.0;
+    const holdingHandSpread = 8.0 * _limbScale;
     const holdingHandLift = 8.0;
-    const kneeSpread = 5.0;
-    const footSpread = 8.0;
-    const upperArmSpread = 6.0;
-    const handSpread = 10.0;
+    const kneeSpread = 5.0 * _limbScale;
+    const footSpread = 8.0 * _limbScale;
+    const upperArmSpread = 6.0 * _limbScale;
+    const handSpread = 10.0 * _limbScale;
     final headX = centerX + headShake;
 
     final leftHoldingHand = Offset(
@@ -336,19 +337,29 @@ class _FallingStickFigurePainter extends CustomPainter {
       final kneeX =
           centerX +
           direction * kneeSpread +
-          sin(phase) * 6 * direction * flailStrength;
+          sin(phase) * (6 * _limbScale) * direction * flailStrength;
       final kneeY = hipY + 7 + cos(phase * 2) * 2.5 * flailStrength;
       final footX =
           centerX +
           direction * footSpread +
-          sin(phase + 1) * 6 * direction * flailStrength +
+          sin(phase + 1) * (6 * _limbScale) * direction * flailStrength +
           swing * open * 1.5;
       final footY = 99.0 + sin(phase * 1.5) * 3 * flailStrength;
       canvas.drawPath(
         Path()
           ..moveTo(centerX + direction * 2, hipY)
-          ..quadraticBezierTo(kneeX - direction * 2, kneeY - 2, kneeX, kneeY)
-          ..quadraticBezierTo(kneeX + direction * 3, kneeY + 4, footX, footY),
+          ..quadraticBezierTo(
+            kneeX - direction * (2 * _limbScale),
+            kneeY - 2,
+            kneeX,
+            kneeY,
+          )
+          ..quadraticBezierTo(
+            kneeX + direction * (3 * _limbScale),
+            kneeY + 4,
+            footX,
+            footY,
+          ),
         paint,
       );
     }
@@ -358,14 +369,19 @@ class _FallingStickFigurePainter extends CustomPainter {
       final flailElbowX =
           centerX +
           direction * upperArmSpread +
-          (direction > 0 ? cos(phase * 1.5) * 4 : sin(phase * 1.5) * 4) *
+          (direction > 0
+                  ? cos(phase * 1.5) * (4 * _limbScale)
+                  : sin(phase * 1.5) * (4 * _limbScale)) *
               flailStrength;
       final flailElbowY =
           shoulderY - 3 + (direction > 0 ? sin(phase) * 3 : cos(phase) * 3);
       final flailHandX =
           centerX +
           direction * handSpread +
-          (direction > 0 ? cos(phase) * 5 : sin(phase) * 5) * flailStrength;
+          (direction > 0
+                  ? cos(phase) * (5 * _limbScale)
+                  : sin(phase) * (5 * _limbScale)) *
+              flailStrength;
       final flailHandY =
           headY -
           28 +
@@ -386,12 +402,17 @@ class _FallingStickFigurePainter extends CustomPainter {
         Path()
           ..moveTo(shoulder.dx, shoulder.dy)
           ..quadraticBezierTo(
-            elbowX - direction * 2,
+            elbowX - direction * (2 * _limbScale),
             elbowY + 3,
             elbowX,
             elbowY,
           )
-          ..quadraticBezierTo(elbowX + direction * 3, elbowY - 4, handX, handY),
+          ..quadraticBezierTo(
+            elbowX + direction * (3 * _limbScale),
+            elbowY - 4,
+            handX,
+            handY,
+          ),
         paint,
       );
     }

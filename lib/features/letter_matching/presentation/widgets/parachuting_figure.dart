@@ -72,6 +72,8 @@ class _ParachutingFigureState extends State<ParachutingFigure>
 }
 
 class _ParachuteFigurePainter extends CustomPainter {
+  static const _limbScale = 0.85;
+
   @override
   void paint(Canvas canvas, Size size) {
     final canopy = Paint()
@@ -145,19 +147,22 @@ class _ParachuteFigurePainter extends CustomPainter {
 
     for (final direction in [-1, 1]) {
       final shoulder = Offset(centerX + direction * 2, shoulderY + 2);
-      final elbow = Offset(centerX + direction * 8, shoulderY - 2);
-      final hand = Offset(centerX + direction * 5, headY - 6);
+      final elbow = Offset(
+        centerX + direction * (8 * _limbScale),
+        shoulderY - 2,
+      );
+      final hand = Offset(centerX + direction * (5 * _limbScale), headY - 6);
       canvas.drawPath(
         Path()
           ..moveTo(shoulder.dx, shoulder.dy)
           ..quadraticBezierTo(
-            elbow.dx + direction * 2,
+            elbow.dx + direction * (2 * _limbScale),
             elbow.dy + 4,
             elbow.dx,
             elbow.dy,
           )
           ..quadraticBezierTo(
-            elbow.dx + direction,
+            elbow.dx + direction * _limbScale,
             elbow.dy - 4,
             hand.dx,
             hand.dy,
@@ -168,19 +173,19 @@ class _ParachuteFigurePainter extends CustomPainter {
 
     for (final direction in [-1, 1]) {
       final hip = Offset(centerX + direction * 2, hipY);
-      final knee = Offset(centerX + direction * 6, hipY + 8);
-      final foot = Offset(centerX + direction * 8, hipY + 18);
+      final knee = Offset(centerX + direction * (6 * _limbScale), hipY + 8);
+      final foot = Offset(centerX + direction * (8 * _limbScale), hipY + 18);
       canvas.drawPath(
         Path()
           ..moveTo(hip.dx, hip.dy)
           ..quadraticBezierTo(
-            knee.dx - direction * 2,
+            knee.dx - direction * (2 * _limbScale),
             knee.dy - 2,
             knee.dx,
             knee.dy,
           )
           ..quadraticBezierTo(
-            knee.dx + direction * 2,
+            knee.dx + direction * (2 * _limbScale),
             knee.dy + 4,
             foot.dx,
             foot.dy,

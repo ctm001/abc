@@ -2,7 +2,6 @@ import 'dart:math';
 
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../game_colors.dart';
@@ -17,34 +16,16 @@ class CelebrationOverlay extends StatefulWidget {
   State<CelebrationOverlay> createState() => _CelebrationOverlayState();
 }
 
-class _CelebrationOverlayState extends State<CelebrationOverlay>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _scale;
+class _CelebrationOverlayState extends State<CelebrationOverlay> {
   late int _type;
 
   @override
   void initState() {
     super.initState();
     _type = Random().nextInt(4);
-    _ctrl = AnimationController(
-      duration: GameTimings.celebrationScale,
-      vsync: this,
-    );
-    _scale = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut));
-    _ctrl.forward();
     Future.delayed(GameTimings.celebrationAutoAdvance, () {
       if (mounted) widget.onComplete();
     });
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
   }
 
   @override
@@ -53,75 +34,9 @@ class _CelebrationOverlayState extends State<CelebrationOverlay>
       children: [
         GestureDetector(
           onTap: widget.onComplete,
-          child: Container(color: Colors.black.withValues(alpha: 0.3)),
+          child: const ColoredBox(color: Colors.transparent),
         ),
         _buildAnimation(),
-        Center(
-          child: ScaleTransition(
-            scale: _scale,
-            child: GestureDetector(
-              onTap: widget.onComplete,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 48,
-                  vertical: 32,
-                ),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppColors.success, Color(0xFF3DBD6B)],
-                  ),
-                  borderRadius: BorderRadius.circular(
-                    GameDimensions.borderRadius,
-                  ),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.8),
-                    width: 3,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      blurRadius: 16,
-                      spreadRadius: 2,
-                    ),
-                    BoxShadow(
-                      color: AppColors.success.withValues(alpha: 0.5),
-                      blurRadius: 24,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.star,
-                      size: 64,
-                      color: AppColors.rewardGold,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Riktig!',
-                      style: GoogleFonts.aBeeZee(
-                        fontSize: 36,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        shadows: [
-                          const Shadow(
-                            color: Color(0x40000000),
-                            blurRadius: 4,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }
