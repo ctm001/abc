@@ -46,6 +46,9 @@ class FindLetterState extends ChangeNotifier {
   bool _crumbling = false;
   bool get stackCrumbling => _crumbling;
 
+  bool _dancing = false;
+  bool get isDancing => _dancing;
+
   bool _goldCoin = false;
   bool get showGoldCoin => _goldCoin;
 
@@ -70,7 +73,12 @@ class FindLetterState extends ChangeNotifier {
 
   int get alphabetLength => _letters.length;
   bool get canSelectChoices =>
-      !_disposed && !_celebration && !_wrongAnswer && !_crumbling && !_goldCoin;
+      !_disposed &&
+      !_celebration &&
+      !_wrongAnswer &&
+      !_crumbling &&
+      !_dancing &&
+      !_goldCoin;
 
   /// Asset path for the current target's pronunciation.
   String get targetSoundPath => _letters[_target.index].soundAssetPath;
@@ -150,7 +158,14 @@ class FindLetterState extends ChangeNotifier {
     _stack.add(selected);
     _letterIdx++;
     if (_letterIdx >= _letters.length) {
-      _goldCoin = true;
+      _dancing = true;
+      final token = _beginTransition();
+      Future.delayed(const Duration(seconds: 4), () {
+        if (!_isCurrentTransition(token)) return;
+        _dancing = false;
+        _goldCoin = true;
+        _notifyListeners();
+      });
     }
     _celebration = true;
     _wrongAnswer = false;
@@ -202,6 +217,7 @@ class FindLetterState extends ChangeNotifier {
     _celebration = false;
     _wrongAnswer = false;
     _crumbling = false;
+    _dancing = false;
     _goldCoin = false;
     _wrongIdx = -1;
     startNewRound();
@@ -210,6 +226,7 @@ class FindLetterState extends ChangeNotifier {
   /// Dismiss gold coin and unlock the next level.
   void dismissGoldCoin() {
     _goldCoin = false;
+    _dancing = false;
     _stack = [];
     _celebration = false;
     _letterIdx = 0;
@@ -227,6 +244,7 @@ class FindLetterState extends ChangeNotifier {
     _stack = [];
     _celebration = false;
     _wrongAnswer = false;
+    _dancing = false;
     _goldCoin = false;
     _crumbling = false;
     _wrongIdx = -1;

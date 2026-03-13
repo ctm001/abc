@@ -13,12 +13,14 @@ class LetterStack extends StatelessWidget {
     required this.letters,
     this.isCrumbling = false,
     this.showParachute = false,
+    this.isCelebrating = false,
     super.key,
   });
 
   final List<GameLetter> letters;
   final bool isCrumbling;
   final bool showParachute;
+  final bool isCelebrating;
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +51,10 @@ class LetterStack extends StatelessWidget {
                 isCrumbling: isCrumbling,
               ),
             if (letters.isNotEmpty && !isCrumbling && !showParachute)
-              ClimbingFigure(letterCount: letters.length),
+              ClimbingFigure(
+                letterCount: letters.length,
+                isCelebrating: isCelebrating,
+              ),
             if (letters.isNotEmpty && showParachute)
               ParachutingFigure(startHeight: letters.length),
             if (isCrumbling && letters.isNotEmpty)

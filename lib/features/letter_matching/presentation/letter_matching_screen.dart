@@ -47,6 +47,7 @@ class _LetterMatchingScreenState extends State<LetterMatchingScreen> {
   int _lastAutoplayToken = 0;
   bool _initialized = false;
   bool _wasShowingGoldCoin = false;
+  bool _wasDancing = false;
 
   @override
   void initState() {
@@ -69,14 +70,19 @@ class _LetterMatchingScreenState extends State<LetterMatchingScreen> {
 
   void _handleGameChanged() {
     if (!_initialized) return;
+    final dancingJustStarted = _game.isDancing && !_wasDancing;
+    _wasDancing = _game.isDancing;
     final goldCoinJustShown = _game.showGoldCoin && !_wasShowingGoldCoin;
     _wasShowingGoldCoin = _game.showGoldCoin;
 
-    if (goldCoinJustShown) {
+    if (dancingJustStarted || goldCoinJustShown) {
       unawaited(_audio.playCelebration());
     }
 
-    if (_game.showCelebration || _game.stackCrumbling || _game.showGoldCoin) {
+    if (_game.showCelebration ||
+        _game.stackCrumbling ||
+        _game.isDancing ||
+        _game.showGoldCoin) {
       return;
     }
     if (_lastAutoplayToken == _game.autoplayToken) {
@@ -152,6 +158,7 @@ class _LetterMatchingScreenState extends State<LetterMatchingScreen> {
                       letters: _game.letterStack,
                       isCrumbling: _game.stackCrumbling,
                       showParachute: _game.showGoldCoin,
+                      isCelebrating: _game.isDancing,
                     ),
                   ),
                   Expanded(child: _buildGameColumn()),
@@ -160,7 +167,7 @@ class _LetterMatchingScreenState extends State<LetterMatchingScreen> {
             ),
           ],
         ),
-        if (_game.showCelebration && !_game.showGoldCoin)
+        if (_game.showCelebration && !_game.showGoldCoin && !_game.isDancing)
           CelebrationOverlay(onComplete: _game.nextRound),
         if (_game.showGoldCoin)
           GoldCoinOverlay(onDismiss: _game.dismissGoldCoin),

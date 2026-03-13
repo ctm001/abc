@@ -123,6 +123,9 @@ void main() {
         await tester.pump();
       }
 
+      // Dance plays for 4 seconds before gold coin appears.
+      await tester.pump(const Duration(seconds: 4));
+
       expect(find.text('GRATULERER!'), findsOneWidget);
       expect(find.textContaining('Niv'), findsNothing);
 
