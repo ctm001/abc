@@ -170,7 +170,7 @@ class _FallingStickFigurePainter extends CustomPainter {
   final double flailPhase;
   final double parachuteProgress;
   final double swingPhase;
-  static const _limbScale = 0.55;
+  static const _limbScale = 0.85;
 
   double _mix(double from, double to, double progress) {
     return from + (to - from) * progress;
