@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/services.dart';
 
 class AlphabeticPrincipleAudio {
-  final AudioPlayer _tapPlayer = AudioPlayer();
   final AudioPlayer _successPlayer = AudioPlayer();
   final AudioPlayer _celebrationPlayer = AudioPlayer();
   final AudioPlayer _wrongPlayer = AudioPlayer();
@@ -19,23 +18,9 @@ class AlphabeticPrincipleAudio {
     }
 
     _initialized = true;
-    await _tapPlayer.setReleaseMode(ReleaseMode.stop);
     await _successPlayer.setReleaseMode(ReleaseMode.stop);
     await _celebrationPlayer.setReleaseMode(ReleaseMode.stop);
     await _wrongPlayer.setReleaseMode(ReleaseMode.stop);
-  }
-
-  Future<void> playTap() async {
-    await _init();
-    if (!kIsWeb) {
-      HapticFeedback.mediumImpact();
-    }
-    try {
-      await _tapPlayer.stop();
-      await _tapPlayer.play(AssetSource('audio/sfx/pop.wav'), volume: 0.5);
-    } catch (error, stackTrace) {
-      log('Failed to play tap sound', error: error, stackTrace: stackTrace);
-    }
   }
 
   Future<void> playSuccess() async {
@@ -46,8 +31,8 @@ class AlphabeticPrincipleAudio {
     try {
       await _successPlayer.stop();
       await _successPlayer.play(
-        AssetSource('audio/sfx/success.wav'),
-        volume: 0.7,
+        AssetSource('audio/sfx/correct.mp3'),
+        volume: 0.245,
       );
     } catch (error, stackTrace) {
       log('Failed to play success sound', error: error, stackTrace: stackTrace);
@@ -81,8 +66,8 @@ class AlphabeticPrincipleAudio {
 
       try {
         await _celebrationPlayer.play(
-          AssetSource('audio/sfx/celebration.wav'),
-          volume: 0.6,
+          AssetSource('audio/sfx/correct.mp3'),
+          volume: 0.21,
         );
         await playbackCompleter.future;
       } finally {
@@ -132,7 +117,7 @@ class AlphabeticPrincipleAudio {
     }
     try {
       await _wrongPlayer.stop();
-      await _wrongPlayer.play(AssetSource('audio/sfx/wrong.wav'), volume: 0.35);
+      await _wrongPlayer.play(AssetSource('audio/sfx/wrong.wav'), volume: 0.12);
     } catch (error, stackTrace) {
       log('Failed to play wrong sound', error: error, stackTrace: stackTrace);
     }
@@ -140,7 +125,6 @@ class AlphabeticPrincipleAudio {
 
   Future<void> dispose() async {
     _completeActiveCelebration();
-    await _tapPlayer.dispose();
     await _successPlayer.dispose();
     await _celebrationPlayer.dispose();
     await _wrongPlayer.dispose();

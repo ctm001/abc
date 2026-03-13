@@ -36,7 +36,7 @@ class FingerTracingAudio {
       await _celebrationPlayer.stop();
       await _celebrationPlayer.play(
         AssetSource('audio/sfx/celebration.wav'),
-        volume: 0.65,
+        volume: 0.23,
       );
     } catch (error, stackTrace) {
       log(

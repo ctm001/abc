@@ -8,7 +8,6 @@ import 'game_colors.dart';
 
 /// Sound effects and haptic feedback for the game.
 class GameAudio {
-  final AudioPlayer _popPlayer = AudioPlayer();
   final AudioPlayer _successPlayer = AudioPlayer();
   final AudioPlayer _celebrationPlayer = AudioPlayer();
   final AudioPlayer _wrongPlayer = AudioPlayer();
@@ -17,22 +16,9 @@ class GameAudio {
   Future<void> _init() async {
     if (_initialized) return;
     _initialized = true;
-    await _popPlayer.setReleaseMode(ReleaseMode.stop);
     await _successPlayer.setReleaseMode(ReleaseMode.stop);
     await _celebrationPlayer.setReleaseMode(ReleaseMode.stop);
     await _wrongPlayer.setReleaseMode(ReleaseMode.stop);
-  }
-
-  /// Button tap sound with haptic.
-  Future<void> playPop() async {
-    await _init();
-    if (!kIsWeb) HapticFeedback.mediumImpact();
-    try {
-      await _popPlayer.stop();
-      await _popPlayer.play(AssetSource('audio/sfx/pop.wav'), volume: 0.5);
-    } catch (error, stackTrace) {
-      log('Failed to play pop sound', error: error, stackTrace: stackTrace);
-    }
   }
 
   /// Correct-answer chime with haptic.
@@ -42,8 +28,8 @@ class GameAudio {
     try {
       await _successPlayer.stop();
       await _successPlayer.play(
-        AssetSource('audio/sfx/success.wav'),
-        volume: 0.7,
+        AssetSource('audio/sfx/levelup.mp3'),
+        volume: 0.245,
       );
     } catch (error, stackTrace) {
       log('Failed to play success sound', error: error, stackTrace: stackTrace);
@@ -68,7 +54,7 @@ class GameAudio {
       await _celebrationPlayer.stop();
       await _celebrationPlayer.play(
         AssetSource('audio/sfx/celebration.wav'),
-        volume: 0.6,
+        volume: 0.21,
       );
     } catch (error, stackTrace) {
       log(
@@ -85,7 +71,7 @@ class GameAudio {
     if (!kIsWeb) HapticFeedback.vibrate();
     try {
       await _wrongPlayer.stop();
-      await _wrongPlayer.play(AssetSource('audio/sfx/wrong.wav'), volume: 0.3);
+      await _wrongPlayer.play(AssetSource('audio/sfx/wrong.mp3'), volume: 0.105);
     } catch (error, stackTrace) {
       log('Failed to play wrong sound', error: error, stackTrace: stackTrace);
     }
@@ -93,7 +79,6 @@ class GameAudio {
 
   /// Release all audio players.
   Future<void> dispose() async {
-    await _popPlayer.dispose();
     await _successPlayer.dispose();
     await _celebrationPlayer.dispose();
     await _wrongPlayer.dispose();

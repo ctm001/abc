@@ -248,7 +248,6 @@ class _LetterMatchingScreenState extends State<LetterMatchingScreen> {
     if (!_game.canSelectChoices) {
       return;
     }
-    unawaited(_audio.playPop());
     if (_game.selectLetter(letter)) {
       unawaited(_audio.playSuccess());
     } else {

@@ -211,7 +211,6 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen>
       return;
     }
 
-    unawaited(_audio.playTap());
     if (_game.selectChoice(choice)) {
       if (!_game.showSuccess) {
         unawaited(_audio.playSuccess());
