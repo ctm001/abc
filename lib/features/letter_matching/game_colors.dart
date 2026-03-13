@@ -54,7 +54,7 @@ abstract final class GameTimings {
   static const climbingIdle = Duration(milliseconds: 8000);
   static const falling = Duration(milliseconds: 1200);
   static const fallingFlail = Duration(milliseconds: 150);
-  static const fallingFigureFreefallMs = 650;
+  static const fallingFigureFreefallMs = 350;
   static const fallingFigureParachuteMs = 1250;
   static const fallingFigureFreefall = Duration(
     milliseconds: fallingFigureFreefallMs,

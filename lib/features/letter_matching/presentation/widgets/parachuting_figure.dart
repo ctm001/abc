@@ -62,7 +62,7 @@ class _ParachutingFigureState extends State<ParachutingFigure>
           bottom: y,
           left: 10 + swing,
           child: CustomPaint(
-            size: const Size(60, 90),
+            size: const Size(60, 96),
             painter: _ParachuteFigurePainter(),
           ),
         );
@@ -73,6 +73,8 @@ class _ParachutingFigureState extends State<ParachutingFigure>
 
 class _ParachuteFigurePainter extends CustomPainter {
   static const _limbScale = 0.85;
+  static const _headRadius = 7.0;
+  static const _handRadius = 1.8;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -99,9 +101,17 @@ class _ParachuteFigurePainter extends CustomPainter {
       ..color = GameColors.secondary
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
-    canvas.drawLine(Offset(centerX - 14, 8), Offset(centerX - 18, 36), panel);
+    canvas.drawLine(
+      Offset(centerX - 14, 8),
+      Offset(centerX - 18, 36),
+      panel,
+    );
     canvas.drawLine(Offset(centerX, 0), Offset(centerX, 38), panel);
-    canvas.drawLine(Offset(centerX + 14, 8), Offset(centerX + 18, 36), panel);
+    canvas.drawLine(
+      Offset(centerX + 14, 8),
+      Offset(centerX + 18, 36),
+      panel,
+    );
 
     final string = Paint()
       ..color = Colors.black54
@@ -109,10 +119,10 @@ class _ParachuteFigurePainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     for (final points in [
-      [centerX - 25, 34.0, centerX - 15, 50.0, centerX - 5, 62.0],
-      [centerX + 25, 34.0, centerX + 15, 50.0, centerX + 5, 62.0],
-      [centerX - 10, 36.0, centerX - 5, 48.0, centerX - 2, 62.0],
-      [centerX + 10, 36.0, centerX + 5, 48.0, centerX + 2, 62.0],
+      [centerX - 25, 34.0, centerX - 15, 50.0, centerX - 5, 64.0],
+      [centerX + 25, 34.0, centerX + 15, 50.0, centerX + 5, 64.0],
+      [centerX - 10, 36.0, centerX - 5, 48.0, centerX - 2, 64.0],
+      [centerX + 10, 36.0, centerX + 5, 48.0, centerX + 2, 64.0],
     ]) {
       canvas.drawPath(
         Path()
@@ -132,19 +142,25 @@ class _ParachuteFigurePainter extends CustomPainter {
       ..color = GameColors.secondary
       ..style = PaintingStyle.fill;
 
-    const headY = 70.0;
-    canvas.drawCircle(Offset(centerX, headY), 6, head);
-    canvas.drawCircle(Offset(centerX, headY), 6, figure);
+    const headY = 72.0;
+    canvas.drawCircle(Offset(centerX, headY), _headRadius, head);
+    canvas.drawCircle(Offset(centerX, headY), _headRadius, figure);
 
-    final shoulderY = headY + 6;
-    final hipY = headY + 18;
+    final shoulderY = headY + _headRadius;
+    final hipY = headY + 20;
     canvas.drawPath(
       Path()
         ..moveTo(centerX, shoulderY)
-        ..quadraticBezierTo(centerX + 1, (shoulderY + hipY) / 2, centerX, hipY),
+        ..quadraticBezierTo(
+          centerX + 1,
+          (shoulderY + hipY) / 2,
+          centerX,
+          hipY,
+        ),
       figure,
     );
 
+    // Arms with hands
     for (final direction in [-1, 1]) {
       final shoulder = Offset(centerX + direction * 2, shoulderY + 2);
       final elbow = Offset(
@@ -169,8 +185,11 @@ class _ParachuteFigurePainter extends CustomPainter {
           ),
         figure,
       );
+      canvas.drawCircle(hand, _handRadius, head);
+      canvas.drawCircle(hand, _handRadius, figure);
     }
 
+    // Legs with feet
     for (final direction in [-1, 1]) {
       final hip = Offset(centerX + direction * 2, hipY);
       final knee = Offset(centerX + direction * (6 * _limbScale), hipY + 8);
@@ -192,19 +211,25 @@ class _ParachuteFigurePainter extends CustomPainter {
           ),
         figure,
       );
+      canvas.drawLine(
+        Offset(foot.dx, foot.dy),
+        Offset(foot.dx + direction * 4, foot.dy),
+        figure,
+      );
     }
 
+    // Face
     final face = Paint()
       ..color = Colors.black87
       ..strokeWidth = 1.2
       ..style = PaintingStyle.stroke;
 
-    canvas.drawCircle(Offset(centerX - 2, headY - 1.5), 1, face);
-    canvas.drawCircle(Offset(centerX + 2, headY - 1.5), 1, face);
+    canvas.drawCircle(Offset(centerX - 2.5, headY - 1.5), 1.2, face);
+    canvas.drawCircle(Offset(centerX + 2.5, headY - 1.5), 1.2, face);
     canvas.drawPath(
       Path()
-        ..moveTo(centerX - 3, headY + 1.5)
-        ..quadraticBezierTo(centerX, headY + 4, centerX + 3, headY + 1.5),
+        ..moveTo(centerX - 3, headY + 2)
+        ..quadraticBezierTo(centerX, headY + 5, centerX + 3, headY + 2),
       face,
     );
   }

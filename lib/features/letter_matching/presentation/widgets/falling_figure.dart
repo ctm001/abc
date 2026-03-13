@@ -17,7 +17,7 @@ class _FallingFigureState extends State<FallingFigure>
     with TickerProviderStateMixin {
   static const _deployHeightFraction = 0.5;
   static const _parachuteOpenPhase = 0.35;
-  static const _canvasSize = Size(72, 112);
+  static const _canvasSize = Size(72, 96);
   static const _visibleFigureWidth = 30.0;
   static const _deployProgress =
       GameTimings.fallingFigureFreefallMs /
@@ -171,6 +171,8 @@ class _FallingStickFigurePainter extends CustomPainter {
   final double parachuteProgress;
   final double swingPhase;
   static const _limbScale = 0.85;
+  static const _headRadius = 8.0;
+  static const _handRadius = 1.8;
 
   double _mix(double from, double to, double progress) {
     return from + (to - from) * progress;
@@ -250,8 +252,18 @@ class _FallingStickFigurePainter extends CustomPainter {
     for (final anchor in [
       [centerX - canopyHalfWidth * 0.82, baseY - 1, leftHand.dx, leftHand.dy],
       [centerX - canopyHalfWidth * 0.28, baseY + 2, leftHand.dx, leftHand.dy],
-      [centerX + canopyHalfWidth * 0.28, baseY + 2, rightHand.dx, rightHand.dy],
-      [centerX + canopyHalfWidth * 0.82, baseY - 1, rightHand.dx, rightHand.dy],
+      [
+        centerX + canopyHalfWidth * 0.28,
+        baseY + 2,
+        rightHand.dx,
+        rightHand.dy,
+      ],
+      [
+        centerX + canopyHalfWidth * 0.82,
+        baseY - 1,
+        rightHand.dx,
+        rightHand.dy,
+      ],
     ]) {
       canvas.drawPath(
         Path()
@@ -287,7 +299,7 @@ class _FallingStickFigurePainter extends CustomPainter {
     final twist = sin(phase * 3) * 3 * flailStrength;
     final headShake = sin(phase * 4) * 2 * flailStrength + swing * open * 1.5;
 
-    const headY = 46.0;
+    const headY = 48.0;
     const holdingHandSpread = 8.0 * _limbScale;
     const holdingHandLift = 8.0;
     const kneeSpread = 5.0 * _limbScale;
@@ -316,14 +328,14 @@ class _FallingStickFigurePainter extends CustomPainter {
       );
     }
 
-    canvas.drawCircle(Offset(headX, headY), 7, fill);
-    canvas.drawCircle(Offset(headX, headY), 7, paint);
+    canvas.drawCircle(Offset(headX, headY), _headRadius, fill);
+    canvas.drawCircle(Offset(headX, headY), _headRadius, paint);
 
-    const shoulderY = 56.0;
-    const hipY = 72.0;
+    const shoulderY = 60.0;
+    const hipY = 74.0;
     canvas.drawPath(
       Path()
-        ..moveTo(headX, headY + 7)
+        ..moveTo(headX, headY + _headRadius)
         ..quadraticBezierTo(
           centerX + twist,
           (shoulderY + hipY) / 2,
@@ -333,18 +345,19 @@ class _FallingStickFigurePainter extends CustomPainter {
       paint,
     );
 
+    // Legs with feet
     for (final direction in [-1, 1]) {
       final kneeX =
           centerX +
           direction * kneeSpread +
           sin(phase) * (6 * _limbScale) * direction * flailStrength;
-      final kneeY = hipY + 7 + cos(phase * 2) * 2.5 * flailStrength;
+      final kneeY = hipY + 9 + cos(phase * 2) * 2.5 * flailStrength;
       final footX =
           centerX +
           direction * footSpread +
           sin(phase + 1) * (6 * _limbScale) * direction * flailStrength +
           swing * open * 1.5;
-      final footY = 99.0 + sin(phase * 1.5) * 3 * flailStrength;
+      final footY = 92.0 + sin(phase * 1.5) * 3 * flailStrength;
       canvas.drawPath(
         Path()
           ..moveTo(centerX + direction * 2, hipY)
@@ -362,8 +375,14 @@ class _FallingStickFigurePainter extends CustomPainter {
           ),
         paint,
       );
+      canvas.drawLine(
+        Offset(footX, footY),
+        Offset(footX + direction * 4, footY),
+        paint,
+      );
     }
 
+    // Arms with hands
     for (final direction in [-1, 1]) {
       final shoulder = Offset(centerX + direction * 3 + twist, shoulderY);
       final flailElbowX =
@@ -384,7 +403,7 @@ class _FallingStickFigurePainter extends CustomPainter {
               flailStrength;
       final flailHandY =
           headY -
-          28 +
+          18 +
           (direction > 0 ? cos(phase * 2) * 4 : sin(phase * 2) * 4) *
               flailStrength;
 
@@ -415,23 +434,26 @@ class _FallingStickFigurePainter extends CustomPainter {
           ),
         paint,
       );
+      canvas.drawCircle(Offset(handX, handY), _handRadius, fill);
+      canvas.drawCircle(Offset(handX, handY), _handRadius, paint);
     }
 
+    // Face
     final face = Paint()
       ..color = Colors.black87
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
-    canvas.drawCircle(Offset(headX - 2.5, headY - 1), 1.8, face);
-    canvas.drawCircle(Offset(headX + 2.5, headY - 1), 2.0, face);
+    canvas.drawCircle(Offset(headX - 2.8, headY - 1), 1.8, face);
+    canvas.drawCircle(Offset(headX + 2.8, headY - 1), 2.0, face);
     canvas.drawLine(
-      Offset(headX - 4, headY - 4),
-      Offset(headX - 1, headY - 3),
+      Offset(headX - 4, headY - 4.5),
+      Offset(headX - 1, headY - 3.5),
       face,
     );
     canvas.drawLine(
-      Offset(headX + 4, headY - 4),
-      Offset(headX + 1, headY - 3),
+      Offset(headX + 4, headY - 4.5),
+      Offset(headX + 1, headY - 3.5),
       face,
     );
 
