@@ -243,7 +243,6 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen>
             _Header(
               currentLevel: _game.level,
               highestLevel: _game.highestLevel,
-              titleText: _game.titleText,
               onLevelChanged: _game.playLevel,
               onBack: () {
                 if (context.canPop()) {
@@ -269,10 +268,6 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen>
                       availableContentHeight - _layoutSafetyMargin,
                     ),
                     slotCount: _game.slots.length,
-                    totalChoices: _game.isBuildWordLevel
-                        ? _game.currentWord.letters.length
-                        : 4,
-                    isBuildWordLevel: _game.isBuildWordLevel,
                   );
                   final content = ConstrainedBox(
                     constraints: const BoxConstraints(
@@ -286,7 +281,7 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen>
                     return Padding(
                       padding: contentPadding,
                       child: Align(
-                        alignment: Alignment.topCenter,
+                        alignment: Alignment.center,
                         child: content,
                       ),
                     );
@@ -358,12 +353,15 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen>
           spacing: layout.slotSpacing,
         ),
         SizedBox(height: layout.slotsToChoicesGap),
-        _ChoiceBank(
-          choices: _game.choices,
-          wrongChoiceId: _game.wrongChoiceId,
-          onChoiceTapped: _onChoiceTapped,
-          choiceSize: layout.choiceSize,
-          spacing: layout.choiceSpacing,
+        SizedBox(
+          height: layout.choiceAreaHeight,
+          child: _ChoiceBank(
+            choices: _game.choices,
+            wrongChoiceId: _game.wrongChoiceId,
+            onChoiceTapped: _onChoiceTapped,
+            choiceSize: layout.choiceSize,
+            spacing: layout.choiceSpacing,
+          ),
         ),
       ],
     );
@@ -381,9 +379,8 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen>
     required double availableWidth,
     required double availableHeight,
     required int slotCount,
-    required int totalChoices,
-    required bool isBuildWordLevel,
   }) {
+    const referenceChoices = 4;
     final widthBasedCardSize = math
         .min(availableWidth * 0.55, 290)
         .clamp(210.0, 290.0);
@@ -393,17 +390,13 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen>
 
     _ContentLayoutMetrics metricsForScale(double scale) {
       final cardSize = (widthBasedCardSize * scale).clamp(180.0, 290.0);
-      final slotSize = (widthBasedSlotSize * scale).clamp(
-        isBuildWordLevel ? 42.0 : 52.0,
-        82.0,
-      );
+      final slotSize = (widthBasedSlotSize * scale).clamp(52.0, 82.0);
       final slotSpacing = (12.0 * scale).clamp(8.0, 12.0);
       final cardToSlotsGap = lerpDouble(16.0, 24.0, scale)!;
       final slotsToChoicesGap = lerpDouble(18.0, 28.0, scale)!;
       final choiceLayout = _choiceLayoutMetrics(
         availableWidth: availableWidth,
-        totalChoices: totalChoices,
-        isBuildWordLevel: isBuildWordLevel,
+        totalChoices: referenceChoices,
         scale: scale,
       );
       final slotsHeight = _wrapHeight(
@@ -421,6 +414,7 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen>
         slotsToChoicesGap: slotsToChoicesGap,
         choiceSize: choiceLayout.size,
         choiceSpacing: choiceLayout.spacing,
+        choiceAreaHeight: choiceLayout.height,
         contentHeight:
             cardSize +
             cardToSlotsGap +
@@ -452,27 +446,15 @@ class _AlphabeticPrincipleScreenState extends State<AlphabeticPrincipleScreen>
   _ChoiceLayoutMetrics _choiceLayoutMetrics({
     required double availableWidth,
     required int totalChoices,
-    required bool isBuildWordLevel,
     double scale = 1,
   }) {
-    final spacing = ((isBuildWordLevel ? 10.0 : 16.0) * scale).clamp(
-      8.0,
-      isBuildWordLevel ? 10.0 : 16.0,
-    );
+    final spacing = (16.0 * scale).clamp(8.0, 16.0);
     final maxChoiceSize = (92.0 * scale).clamp(52.0, 92.0);
-    final minChoiceSize = ((isBuildWordLevel ? 42.0 : 70.0) * scale).clamp(
-      38.0,
-      isBuildWordLevel ? 42.0 : 70.0,
-    );
+    final minChoiceSize = (70.0 * scale).clamp(38.0, 70.0);
     final contentWidth = math.max(0.0, availableWidth);
-    final singleRowSize =
-        (contentWidth - (spacing * (totalChoices - 1))) / totalChoices;
-    final choiceSize =
-        (isBuildWordLevel
-                ? singleRowSize
-                : math.min(contentWidth / 4.7, maxChoiceSize))
-            .clamp(minChoiceSize, maxChoiceSize)
-            .toDouble();
+    final choiceSize = math.min(contentWidth / 4.7, maxChoiceSize)
+        .clamp(minChoiceSize, maxChoiceSize)
+        .toDouble();
     final columns = math.max(
       1,
       ((contentWidth + spacing) / (choiceSize + spacing)).floor(),
@@ -521,6 +503,7 @@ class _ContentLayoutMetrics {
     required this.slotsToChoicesGap,
     required this.choiceSize,
     required this.choiceSpacing,
+    required this.choiceAreaHeight,
     required this.contentHeight,
   });
 
@@ -531,6 +514,7 @@ class _ContentLayoutMetrics {
   final double slotsToChoicesGap;
   final double choiceSize;
   final double choiceSpacing;
+  final double choiceAreaHeight;
   final double contentHeight;
 }
 
@@ -538,14 +522,12 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.currentLevel,
     required this.highestLevel,
-    required this.titleText,
     required this.onLevelChanged,
     required this.onBack,
   });
 
   final int currentLevel;
   final int highestLevel;
-  final String titleText;
   final ValueChanged<int> onLevelChanged;
   final VoidCallback onBack;
 
@@ -570,21 +552,6 @@ class _Header extends StatelessWidget {
                   },
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 52),
-            child: Text(
-              titleText,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              style: GoogleFonts.aBeeZee(
-                fontSize: 28,
-                height: 1.2,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textOlive,
-              ),
             ),
           ),
         ],

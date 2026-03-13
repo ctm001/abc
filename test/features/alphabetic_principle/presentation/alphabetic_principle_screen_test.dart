@@ -122,7 +122,7 @@ void main() {
   });
 
   testWidgets(
-    'word card stays below the header and does not move across levels',
+    'word card keeps the same position across levels',
     (tester) async {
       final gameState = AlphabeticPrincipleState(
         letterRepository: LetterRepository(),
@@ -148,12 +148,7 @@ void main() {
       final cardFinder = find.byKey(
         const ValueKey('alphabetic-principle-card'),
       );
-      final levelOneCardTop = tester.getTopLeft(cardFinder).dy;
-      final levelOneTitleBottom = tester
-          .getBottomLeft(find.text('Finn f\u00F8rste bokstav!'))
-          .dy;
-
-      expect(levelOneCardTop, greaterThan(levelOneTitleBottom));
+      final levelOneCardCenterY = tester.getCenter(cardFinder).dy;
 
       await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
       await tester.pump();
@@ -162,13 +157,8 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      final levelThreeCardTop = tester.getTopLeft(cardFinder).dy;
-      final levelThreeTitleBottom = tester
-          .getBottomLeft(find.text('Stav ordet!'))
-          .dy;
-
-      expect(levelThreeCardTop, greaterThan(levelThreeTitleBottom));
-      expect(levelThreeCardTop, closeTo(levelOneCardTop, 0.01));
+      final levelThreeCardCenterY = tester.getCenter(cardFinder).dy;
+      expect(levelThreeCardCenterY, closeTo(levelOneCardCenterY, 0.01));
     },
   );
 
@@ -239,54 +229,6 @@ void main() {
       levelThreeButtonSize.height,
       closeTo(levelOneButtonSize.height, 0.01),
     );
-  });
-
-  testWidgets('level 3 shrinks buttons to keep them on one row', (
-    tester,
-  ) async {
-    final gameState = AlphabeticPrincipleState(
-      letterRepository: LetterRepository(),
-      words: const [
-        AlphabeticWord(
-          word: 'katt',
-          emoji: 'CAT',
-          audioAssetPath: 'assets/audio/words/katt.mp3',
-        ),
-      ],
-      random: Random(0),
-    );
-    addTearDown(gameState.dispose);
-    await tester.binding.setSurfaceSize(const Size(320, 800));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    await pumpAlphabeticPrincipleScreen(
-      tester,
-      audioService: RecordingAudioService(),
-      gameState: gameState,
-    );
-
-    final levelOneButtonSize = tester.getSize(find.byType(LetterButton).first);
-
-    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
-    await tester.pump();
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('game-level-switcher')));
-    await tester.pump();
-    await tester.pump();
-
-    final buttons = find.byType(LetterButton);
-    final levelThreeButtonSize = tester.getSize(buttons.first);
-    final firstButtonTop = tester.getTopLeft(buttons.first).dy;
-
-    expect(levelThreeButtonSize.width, lessThan(levelOneButtonSize.width));
-    expect(levelThreeButtonSize.height, lessThan(levelOneButtonSize.height));
-
-    for (var index = 1; index < 4; index++) {
-      expect(
-        tester.getTopLeft(buttons.at(index)).dy,
-        closeTo(firstButtonTop, 0.01),
-      );
-    }
   });
 
   testWidgets('level 3 shows question marks in empty slots', (tester) async {
