@@ -355,6 +355,7 @@ class _PressableTargetDisplay extends StatefulWidget {
 
 class _PressableTargetDisplayState extends State<_PressableTargetDisplay>
     with SingleTickerProviderStateMixin {
+  static const _audioCueHoldDuration = Duration(seconds: 1);
   static const _audioCueFadeDuration = Duration(seconds: 2);
 
   late final AnimationController _ctrl;
@@ -385,7 +386,7 @@ class _PressableTargetDisplayState extends State<_PressableTargetDisplay>
     };
     final animationDuration =
         widget.displayMode == _TargetDisplayMode.fadeToAudio
-        ? _audioCueFadeDuration
+        ? _audioCueHoldDuration + _audioCueFadeDuration
         : Duration.zero;
     return GestureDetector(
       onTapDown: (_) => _ctrl.forward(),
@@ -404,7 +405,7 @@ class _PressableTargetDisplayState extends State<_PressableTargetDisplay>
           duration: animationDuration,
           curve: Curves.linear,
           builder: (context, audioCueProgress, _) {
-            final progress = audioCueProgress;
+            final progress = _transitionProgress(audioCueProgress);
 
             return Container(
               key: const ValueKey('letter-matching-target-display'),
@@ -442,6 +443,20 @@ class _PressableTargetDisplayState extends State<_PressableTargetDisplay>
         ),
       ),
     );
+  }
+
+  double _transitionProgress(double audioCueProgress) {
+    if (widget.displayMode != _TargetDisplayMode.fadeToAudio) {
+      return audioCueProgress;
+    }
+
+    final totalDuration =
+        _audioCueHoldDuration.inMilliseconds +
+        _audioCueFadeDuration.inMilliseconds;
+    final holdFraction = _audioCueHoldDuration.inMilliseconds / totalDuration;
+    return ((audioCueProgress - holdFraction) / (1 - holdFraction))
+        .clamp(0.0, 1.0)
+        .toDouble();
   }
 
   BoxDecoration _buildTransitionDecoration(double progress) {

@@ -32,13 +32,12 @@ class _ClimbingFigureState extends State<ClimbingFigure>
       duration: GameTimings.climbingBounce,
       vsync: this,
     );
-    _bounceAnim = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _bounce, curve: Curves.elasticOut),
-    );
-    _idle = AnimationController(
-      duration: GameTimings.climbingIdle,
-      vsync: this,
-    )..repeat();
+    _bounceAnim = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _bounce, curve: Curves.elasticOut));
+    _idle = AnimationController(duration: GameTimings.climbingIdle, vsync: this)
+      ..repeat();
     _dance = AnimationController(
       duration: const Duration(milliseconds: 250),
       vsync: this,
@@ -73,11 +72,12 @@ class _ClimbingFigureState extends State<ClimbingFigure>
 
   @override
   Widget build(BuildContext context) {
-    final bottom =
-        StackDimensions.baseHeight -
-        3 +
-        widget.letterCount *
+    final stackTop =
+        StackDimensions.figureStartBottom +
+        StackDimensions.tileSize +
+        max(0, widget.letterCount - 1) *
             (StackDimensions.tileSize + StackDimensions.tileGap);
+    final bottom = stackTop - 1;
 
     return AnimatedBuilder(
       animation: Listenable.merge([_bounce, _idle, _dance]),
@@ -156,11 +156,7 @@ class _StickFigurePainter extends CustomPainter {
           ..quadraticBezierTo(kx + dir * 1.5, (ky + _footY) / 2, fx, _footY),
         stroke,
       );
-      canvas.drawLine(
-        Offset(fx, _footY),
-        Offset(fx + dir * 4, _footY),
-        stroke,
-      );
+      canvas.drawLine(Offset(fx, _footY), Offset(fx + dir * 4, _footY), stroke);
     }
 
     // --- Body ---
@@ -168,12 +164,7 @@ class _StickFigurePainter extends CustomPainter {
     canvas.drawPath(
       Path()
         ..moveTo(headX, _headY + _headRadius)
-        ..quadraticBezierTo(
-          centerX,
-          (_shoulderY + hipY) / 2,
-          centerX,
-          hipY,
-        ),
+        ..quadraticBezierTo(centerX, (_shoulderY + hipY) / 2, centerX, hipY),
       stroke,
     );
 
@@ -236,11 +227,7 @@ class _StickFigurePainter extends CustomPainter {
           ..quadraticBezierTo(kx + dir * 1.5, (ky + fy) / 2, fx, fy),
         stroke,
       );
-      canvas.drawLine(
-        Offset(fx, fy),
-        Offset(fx + dir * 4, fy),
-        stroke,
-      );
+      canvas.drawLine(Offset(fx, fy), Offset(fx + dir * 4, fy), stroke);
     }
 
     // --- Body ---
@@ -268,12 +255,7 @@ class _StickFigurePainter extends CustomPainter {
         Path()
           ..moveTo(centerX + dir * 2, _shoulderY + hop)
           ..quadraticBezierTo(elbowX, elbowY + 3, elbowX, elbowY)
-          ..quadraticBezierTo(
-            elbowX + dir * 2,
-            elbowY - 4,
-            handX,
-            handY,
-          ),
+          ..quadraticBezierTo(elbowX + dir * 2, elbowY - 4, handX, handY),
         stroke,
       );
       canvas.drawCircle(Offset(handX, handY), _handRadius, fill);
@@ -300,8 +282,9 @@ class _StickFigurePainter extends CustomPainter {
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
 
-    final blink =
-        !smiling && (idlePhase > 0.88 && idlePhase < 0.92) ? 0.2 : 1.3;
+    final blink = !smiling && (idlePhase > 0.88 && idlePhase < 0.92)
+        ? 0.2
+        : 1.3;
     canvas.drawCircle(Offset(headX - 2.8, eyeY), blink, face);
     canvas.drawCircle(Offset(headX + 2.8, eyeY), blink, face);
 

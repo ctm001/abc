@@ -40,7 +40,7 @@ abstract final class StackDimensions {
   static const baseWidth = 70.0;
   static const baseHeight = 8.0;
   static const tileSize = 50.0;
-  static const tileGap = 4.0;
+  static const tileGap = -2.0;
   static const stackHeadroom = 80.0;
   static const climbingLeft = 25.0;
   static const figureStartBottom = 10.0;

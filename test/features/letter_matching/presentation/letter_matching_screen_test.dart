@@ -163,6 +163,39 @@ void main() {
     },
   );
 
+  testWidgets('level 2 keeps the letter visible for 1 second before fading', (
+    tester,
+  ) async {
+    final audioService = RecordingAudioService();
+    final letterRepository = LetterRepository();
+    final gameState = FindLetterState(letterRepository: letterRepository);
+
+    await pumpLetterMatchingScreen(
+      tester,
+      audioService: audioService,
+      letterRepository: letterRepository,
+      gameState: gameState,
+      prefs: const {'highest_level': 1},
+    );
+
+    expect(gameState.level, FindLetterState.fadeToAudioLevel);
+
+    expect(targetLetterOpacity(tester), 1);
+    expect(targetAudioOpacity(tester), 0);
+
+    await tester.pump(const Duration(milliseconds: 900));
+    expect(targetLetterOpacity(tester), 1);
+    expect(targetAudioOpacity(tester), 0);
+
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(targetLetterOpacity(tester), lessThan(1));
+    expect(targetLetterOpacity(tester), greaterThan(0));
+    expect(targetAudioOpacity(tester), greaterThan(0));
+    expect(targetAudioOpacity(tester), lessThan(1));
+
+    gameState.dispose();
+  });
+
   testWidgets('level 3 target is speaker-only with no visible letter', (
     tester,
   ) async {
@@ -233,6 +266,22 @@ String currentLevelLabel(WidgetTester tester) {
         ),
       )
       .data!;
+}
+
+double targetLetterOpacity(WidgetTester tester) {
+  return tester
+      .widget<Opacity>(
+        find.byKey(const ValueKey('letter-matching-target-letter-layer')),
+      )
+      .opacity;
+}
+
+double targetAudioOpacity(WidgetTester tester) {
+  return tester
+      .widget<Opacity>(
+        find.byKey(const ValueKey('letter-matching-target-audio-layer')),
+      )
+      .opacity;
 }
 
 class RecordingAudioService extends AudioService {
