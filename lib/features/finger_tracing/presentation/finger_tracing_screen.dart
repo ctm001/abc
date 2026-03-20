@@ -400,6 +400,7 @@ class _TracingCardState extends State<_TracingCard>
   FingerTracingLayout? _layout;
   Size? _lastSize;
   final List<List<Offset>> _completedStrokes = <List<Offset>>[];
+  final List<List<Offset>> _detachedStrokes = <List<Offset>>[];
   List<Offset>? _activeStroke;
   List<Offset>? _gestureStroke;
   final List<int> _activeCheckpointPathIndices = <int>[];
@@ -576,6 +577,7 @@ class _TracingCardState extends State<_TracingCard>
 
     final hadTraceData =
         _completedStrokes.isNotEmpty ||
+        _detachedStrokes.isNotEmpty ||
         _activeStroke != null ||
         _gestureStroke != null ||
         _nextStrokeIndex > 0 ||
@@ -724,11 +726,14 @@ class _TracingCardState extends State<_TracingCard>
       return;
     }
 
+    _completedStrokes.addAll(
+      _detachedStrokes.map((stroke) => List<Offset>.from(stroke)),
+    );
     _completedStrokes.add(List<Offset>.from(activeStroke));
     _committedCheckpointCount += stroke.checkpoints.length;
     _nextStrokeIndex++;
     _activeStroke = null;
-    _clearGestureStroke();
+    _clearGestureStroke(clearDetachedStrokes: true);
     _activeCheckpointPathIndices.clear();
     _activeCheckpointCount = 0;
     _rewindCheckpointFloor = 0;
@@ -742,7 +747,7 @@ class _TracingCardState extends State<_TracingCard>
   ) {
     final activeStroke = _activeStroke;
     if (activeStroke == null) {
-      _clearGestureStroke();
+      _clearGestureStroke(clearDetachedStrokes: true);
       return;
     }
 
@@ -757,6 +762,7 @@ class _TracingCardState extends State<_TracingCard>
       _activeStroke = null;
       _activeCheckpointPathIndices.clear();
       _activeCheckpointCount = 0;
+      _detachedStrokes.clear();
       _updateCoverage(layout);
       return;
     }
@@ -774,8 +780,9 @@ class _TracingCardState extends State<_TracingCard>
 
   void _resetTraceProgress() {
     _completedStrokes.clear();
+    _detachedStrokes.clear();
     _activeStroke = null;
-    _clearGestureStroke();
+    _clearGestureStroke(clearDetachedStrokes: true);
     _isTracingGesture = false;
     _gestureRewound = false;
     _nextStrokeIndex = 0;
@@ -861,7 +868,7 @@ class _TracingCardState extends State<_TracingCard>
       return null;
     }
 
-    _trimGestureStrokeToFrontier(frontierPoint);
+    _archiveGestureStroke(frontierPoint);
     _gestureConnectedToActiveStroke = true;
     if ((point - frontierPoint).distance > 0.5) {
       activeStroke.add(point);
@@ -952,24 +959,33 @@ class _TracingCardState extends State<_TracingCard>
     return bestPoint;
   }
 
-  void _clearGestureStroke() {
+  void _clearGestureStroke({bool clearDetachedStrokes = false}) {
     _gestureStroke = null;
     _gestureConnectedToActiveStroke = false;
+    if (clearDetachedStrokes) {
+      _detachedStrokes.clear();
+    }
   }
 
-  void _trimGestureStrokeToFrontier(Offset frontierPoint) {
+  void _archiveGestureStroke(Offset frontierPoint) {
     final gestureStroke = _gestureStroke;
     if (gestureStroke == null || gestureStroke.isEmpty) {
       return;
     }
-    gestureStroke[gestureStroke.length - 1] = frontierPoint;
+    final detachedStroke = List<Offset>.from(gestureStroke);
+    detachedStroke[detachedStroke.length - 1] = frontierPoint;
+    if (detachedStroke.length > 1 ||
+        (detachedStroke.first - frontierPoint).distance > 0.5) {
+      _detachedStrokes.add(detachedStroke);
+    }
+    _gestureStroke = null;
   }
 
   List<Offset>? get _captureStrokeForGesture =>
       _gestureConnectedToActiveStroke ? _activeStroke : _gestureStroke;
 
   List<List<Offset>> get _paintedStrokes {
-    final strokes = <List<Offset>>[..._completedStrokes];
+    final strokes = <List<Offset>>[..._completedStrokes, ..._detachedStrokes];
     final activeStroke = _activeStroke;
     if (activeStroke != null) {
       strokes.add(activeStroke);

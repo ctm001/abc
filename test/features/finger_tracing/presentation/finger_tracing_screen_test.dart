@@ -732,6 +732,71 @@ void main() {
     gameState.dispose();
   });
 
+  testWidgets('detached resume line persists after lifting finger', (
+    tester,
+  ) async {
+    final repository = LetterRepository();
+    final c = repository.getByCharacter('C');
+    final audioService = RecordingAudioService();
+    final gameState = FingerTracingState(
+      letterRepository: repository,
+      letterSequence: [c],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FingerTracingScreen(
+          letterRepository: repository,
+          audioService: audioService,
+          gameState: gameState,
+          gameAudio: RecordingFingerTracingAudio(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final board = find.byKey(const ValueKey('finger-tracing-board'));
+    final topLeft = tester.getTopLeft(board);
+    final size = tester.getSize(board);
+    final layout = FingerTracingGuides.layoutFor('C', size);
+    final stroke = layout.strokes.single;
+
+    final gesture = await tester.startGesture(topLeft + stroke.startDot);
+    await tester.pump();
+    for (final checkpoint in stroke.checkpoints.skip(1).take(9)) {
+      await gesture.moveTo(topLeft + checkpoint);
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await gesture.up();
+    await tester.pump();
+
+    final earlierResumePoint = Offset.lerp(
+      stroke.checkpoints[3],
+      stroke.checkpoints[4],
+      0.5,
+    )!;
+    final resumeGesture = await tester.startGesture(
+      topLeft + earlierResumePoint,
+    );
+    await tester.pump();
+    for (final checkpoint in stroke.checkpoints.skip(4).take(5)) {
+      await resumeGesture.moveTo(topLeft + checkpoint);
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await resumeGesture.up();
+    await tester.pump();
+
+    final painterAfterLift =
+        tester.widget<CustomPaint>(board).painter as dynamic;
+    expect(painterAfterLift.strokes.length, 2);
+    expect(gameState.showSuccess, isFalse);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    gameState.dispose();
+  });
+
   testWidgets(
     'screen does not celebrate until the final checkpoint is reached',
     (tester) async {
