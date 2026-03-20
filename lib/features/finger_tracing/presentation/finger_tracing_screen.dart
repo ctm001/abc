@@ -15,6 +15,28 @@ import '../finger_tracing_audio.dart';
 import '../finger_tracing_guides.dart';
 import '../finger_tracing_state.dart';
 
+@visibleForTesting
+double computeFingerTracingCheckpointPulse({
+  required int checkpointIndex,
+  required int checkpointCount,
+  required int cueStartCheckpointIndex,
+  required double guideValue,
+}) {
+  if (checkpointCount == 0 ||
+      checkpointIndex < cueStartCheckpointIndex ||
+      checkpointIndex >= checkpointCount ||
+      cueStartCheckpointIndex >= checkpointCount) {
+    return 0;
+  }
+
+  final remainingCheckpointCount = checkpointCount - cueStartCheckpointIndex;
+  final relativeCheckpointIndex = checkpointIndex - cueStartCheckpointIndex;
+  final sequencePosition = guideValue * (remainingCheckpointCount + 1.4);
+  final distanceFromLead = (relativeCheckpointIndex - sequencePosition).abs();
+  final pulse = (1 - (distanceFromLead / 1.15)).clamp(0.0, 1.0).toDouble();
+  return Curves.easeOut.transform(pulse);
+}
+
 /// Screen for the finger tracing game.
 class FingerTracingScreen extends StatefulWidget {
   const FingerTracingScreen({
@@ -358,6 +380,16 @@ class _TracingCard extends StatefulWidget {
   State<_TracingCard> createState() => _TracingCardState();
 }
 
+class _ResumeTarget {
+  const _ResumeTarget({
+    required this.anchorPoint,
+    required this.connectsToFrontier,
+  });
+
+  final Offset anchorPoint;
+  final bool connectsToFrontier;
+}
+
 class _TracingCardState extends State<_TracingCard>
     with TickerProviderStateMixin {
   static const _dotRewindOnStray = 2;
@@ -369,7 +401,9 @@ class _TracingCardState extends State<_TracingCard>
   Size? _lastSize;
   final List<List<Offset>> _completedStrokes = <List<Offset>>[];
   List<Offset>? _activeStroke;
+  List<Offset>? _gestureStroke;
   final List<int> _activeCheckpointPathIndices = <int>[];
+  bool _gestureConnectedToActiveStroke = false;
   bool _isTracingGesture = false;
   bool _gestureRewound = false;
   int _nextStrokeIndex = 0;
@@ -543,6 +577,7 @@ class _TracingCardState extends State<_TracingCard>
     final hadTraceData =
         _completedStrokes.isNotEmpty ||
         _activeStroke != null ||
+        _gestureStroke != null ||
         _nextStrokeIndex > 0 ||
         _committedCheckpointCount > 0 ||
         _activeCheckpointCount > 0;
@@ -567,8 +602,8 @@ class _TracingCardState extends State<_TracingCard>
 
     final clampedPoint = _clampPoint(point);
     final stroke = layout.strokes[_nextStrokeIndex];
-    final resumePoint = _resumePointFor(stroke);
-    if ((resumePoint - clampedPoint).distance > layout.startHitRadius) {
+    final resumeTarget = _resumeTargetFor(clampedPoint, stroke, layout);
+    if (resumeTarget == null) {
       return;
     }
 
@@ -576,16 +611,19 @@ class _TracingCardState extends State<_TracingCard>
       _isTracingGesture = true;
       _gestureRewound = false;
       _activeStroke ??= <Offset>[stroke.startDot];
+      _gestureStroke = resumeTarget.connectsToFrontier
+          ? null
+          : <Offset>[resumeTarget.anchorPoint];
+      _gestureConnectedToActiveStroke = resumeTarget.connectsToFrontier;
       _captureStrokePoint(clampedPoint, stroke, layout);
     });
   }
 
   void _appendStroke(Offset point) {
     final layout = _layout;
-    final activeStroke = _activeStroke;
     if (layout == null ||
         !_isTracingGesture ||
-        activeStroke == null ||
+        _captureStrokeForGesture == null ||
         _nextStrokeIndex >= layout.strokes.length) {
       return;
     }
@@ -626,8 +664,8 @@ class _TracingCardState extends State<_TracingCard>
     FingerTracingStrokeLayout stroke,
     FingerTracingLayout layout,
   ) {
-    final activeStroke = _activeStroke;
-    if (activeStroke == null) {
+    final gestureStroke = _captureStrokeForGesture;
+    if (gestureStroke == null) {
       return;
     }
 
@@ -638,11 +676,19 @@ class _TracingCardState extends State<_TracingCard>
       return;
     }
 
-    final previousPoint = activeStroke.last;
+    final previousPoint = gestureStroke.last;
     if ((point - previousPoint).distance > 0.5) {
-      activeStroke.add(point);
+      gestureStroke.add(point);
     }
-    _advanceCheckpoints(previousPoint, point, stroke, layout);
+
+    final checkpointStart = _progressionStartForCapture(
+      previousPoint,
+      point,
+      layout,
+    );
+    if (checkpointStart != null) {
+      _advanceCheckpoints(checkpointStart, point, stroke, layout);
+    }
 
     if (_activeCheckpointCount >= stroke.checkpoints.length) {
       _commitActiveStroke(stroke, layout);
@@ -682,6 +728,7 @@ class _TracingCardState extends State<_TracingCard>
     _committedCheckpointCount += stroke.checkpoints.length;
     _nextStrokeIndex++;
     _activeStroke = null;
+    _clearGestureStroke();
     _activeCheckpointPathIndices.clear();
     _activeCheckpointCount = 0;
     _rewindCheckpointFloor = 0;
@@ -695,10 +742,12 @@ class _TracingCardState extends State<_TracingCard>
   ) {
     final activeStroke = _activeStroke;
     if (activeStroke == null) {
+      _clearGestureStroke();
       return;
     }
 
     _gestureRewound = true;
+    _clearGestureStroke();
     final retainedCheckpointCount = (_activeCheckpointCount - _dotRewindOnStray)
         .clamp(_rewindCheckpointFloor, _activeCheckpointCount)
         .toInt();
@@ -726,6 +775,7 @@ class _TracingCardState extends State<_TracingCard>
   void _resetTraceProgress() {
     _completedStrokes.clear();
     _activeStroke = null;
+    _clearGestureStroke();
     _isTracingGesture = false;
     _gestureRewound = false;
     _nextStrokeIndex = 0;
@@ -788,15 +838,147 @@ class _TracingCardState extends State<_TracingCard>
     double radius,
   ) => _distanceToSegment(checkpoint, start, end) <= radius;
 
-  Offset _resumePointFor(FingerTracingStrokeLayout stroke) =>
-      _activeStroke?.last ?? stroke.startDot;
-
-  List<List<Offset>> get _paintedStrokes {
+  Offset? _progressionStartForCapture(
+    Offset previousPoint,
+    Offset point,
+    FingerTracingLayout layout,
+  ) {
     final activeStroke = _activeStroke;
     if (activeStroke == null) {
-      return _completedStrokes;
+      return null;
     }
-    return [..._completedStrokes, activeStroke];
+
+    if (_gestureConnectedToActiveStroke) {
+      return previousPoint;
+    }
+
+    final frontierPoint = activeStroke.last;
+    final reachedFrontier =
+        (point - frontierPoint).distance <= layout.startHitRadius ||
+        _distanceToSegment(frontierPoint, previousPoint, point) <=
+            layout.hitRadius;
+    if (!reachedFrontier) {
+      return null;
+    }
+
+    _trimGestureStrokeToFrontier(frontierPoint);
+    _gestureConnectedToActiveStroke = true;
+    if ((point - frontierPoint).distance > 0.5) {
+      activeStroke.add(point);
+    }
+    return frontierPoint;
+  }
+
+  _ResumeTarget? _resumeTargetFor(
+    Offset point,
+    FingerTracingStrokeLayout stroke,
+    FingerTracingLayout layout,
+  ) {
+    final activeStroke = _activeStroke;
+    if (activeStroke == null || _activeCheckpointCount == 0) {
+      return (stroke.startDot - point).distance <= layout.startHitRadius
+          ? _ResumeTarget(
+              anchorPoint: stroke.startDot,
+              connectsToFrontier: true,
+            )
+          : null;
+    }
+
+    final anchorPoint = _nearestPointOnActiveStroke(
+      point,
+      layout.startHitRadius,
+    );
+    if (anchorPoint == null) {
+      return null;
+    }
+
+    return _ResumeTarget(
+      anchorPoint: anchorPoint,
+      connectsToFrontier:
+          (anchorPoint - activeStroke.last).distance <= layout.startHitRadius,
+    );
+  }
+
+  Offset? _nearestPointOnActiveStroke(Offset point, double maxDistance) {
+    final activeStroke = _activeStroke;
+    if (activeStroke == null || activeStroke.isEmpty) {
+      return null;
+    }
+
+    Offset? bestPoint;
+    var bestDistance = double.infinity;
+
+    for (var pointIndex = 0; pointIndex < activeStroke.length; pointIndex++) {
+      final candidatePoint = activeStroke[pointIndex];
+      final distance = (candidatePoint - point).distance;
+      if (distance <= maxDistance && distance < bestDistance) {
+        bestDistance = distance;
+        bestPoint = candidatePoint;
+      }
+    }
+
+    for (
+      var segmentEndIndex = 1;
+      segmentEndIndex < activeStroke.length;
+      segmentEndIndex++
+    ) {
+      final segmentStart = activeStroke[segmentEndIndex - 1];
+      final segmentEnd = activeStroke[segmentEndIndex];
+      final dx = segmentEnd.dx - segmentStart.dx;
+      final dy = segmentEnd.dy - segmentStart.dy;
+      final segmentLengthSquared = (dx * dx) + (dy * dy);
+      if (segmentLengthSquared == 0) {
+        continue;
+      }
+
+      final projection =
+          ((point.dx - segmentStart.dx) * dx +
+              (point.dy - segmentStart.dy) * dy) /
+          segmentLengthSquared;
+      final t = projection.clamp(0.0, 1.0).toDouble();
+      final projected = Offset(
+        segmentStart.dx + (dx * t),
+        segmentStart.dy + (dy * t),
+      );
+      final distance = (point - projected).distance;
+      if (distance > maxDistance || distance >= bestDistance) {
+        continue;
+      }
+
+      bestDistance = distance;
+      bestPoint = projected;
+    }
+
+    return bestPoint;
+  }
+
+  void _clearGestureStroke() {
+    _gestureStroke = null;
+    _gestureConnectedToActiveStroke = false;
+  }
+
+  void _trimGestureStrokeToFrontier(Offset frontierPoint) {
+    final gestureStroke = _gestureStroke;
+    if (gestureStroke == null || gestureStroke.isEmpty) {
+      return;
+    }
+    gestureStroke[gestureStroke.length - 1] = frontierPoint;
+  }
+
+  List<Offset>? get _captureStrokeForGesture =>
+      _gestureConnectedToActiveStroke ? _activeStroke : _gestureStroke;
+
+  List<List<Offset>> get _paintedStrokes {
+    final strokes = <List<Offset>>[..._completedStrokes];
+    final activeStroke = _activeStroke;
+    if (activeStroke != null) {
+      strokes.add(activeStroke);
+    }
+    final gestureStroke = _gestureStroke;
+    if (gestureStroke != null) {
+      strokes.add(gestureStroke);
+    }
+    return strokes;
   }
 
   double _distanceToSegment(Offset point, Offset start, Offset end) {
@@ -1077,13 +1259,11 @@ class _TracingBoardPainter extends CustomPainter {
         final baseRadius = checkpointIndex == 0
             ? layout.startDotRadius
             : layout.checkpointRadius;
-        final pulseStrength = isHit
-            ? 0.0
-            : _checkpointPulse(
-                checkpointIndex,
-                stroke.checkpoints.length,
-                strokeIndex,
-              );
+        final pulseStrength = _checkpointPulse(
+          checkpointIndex,
+          stroke.checkpoints.length,
+          strokeIndex,
+        );
         canvas.drawCircle(
           stroke.checkpoints[checkpointIndex],
           baseRadius,
@@ -1174,10 +1354,16 @@ class _TracingBoardPainter extends CustomPainter {
       return 0;
     }
 
-    final sequencePosition = guideAnimation.value * (checkpointCount + 1.4);
-    final distanceFromLead = (checkpointIndex - sequencePosition).abs();
-    final pulse = (1 - (distanceFromLead / 1.15)).clamp(0.0, 1.0).toDouble();
-    return Curves.easeOut.transform(pulse);
+    final cueStartCheckpointIndex =
+        hasCurrentStroke && activeCheckpointCount > 0
+        ? (activeCheckpointCount - 1).clamp(0, checkpointCount - 1).toInt()
+        : 0;
+    return computeFingerTracingCheckpointPulse(
+      checkpointIndex: checkpointIndex,
+      checkpointCount: checkpointCount,
+      cueStartCheckpointIndex: cueStartCheckpointIndex,
+      guideValue: guideAnimation.value,
+    );
   }
 
   @override

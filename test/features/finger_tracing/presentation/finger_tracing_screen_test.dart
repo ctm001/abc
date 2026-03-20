@@ -9,6 +9,36 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 void main() {
+  test('checkpoint cue starts from the last covered dot', () {
+    expect(
+      computeFingerTracingCheckpointPulse(
+        checkpointIndex: 1,
+        checkpointCount: 6,
+        cueStartCheckpointIndex: 2,
+        guideValue: 0,
+      ),
+      0,
+    );
+    expect(
+      computeFingerTracingCheckpointPulse(
+        checkpointIndex: 2,
+        checkpointCount: 6,
+        cueStartCheckpointIndex: 2,
+        guideValue: 0,
+      ),
+      closeTo(1, 0.001),
+    );
+    expect(
+      computeFingerTracingCheckpointPulse(
+        checkpointIndex: 3,
+        checkpointCount: 6,
+        cueStartCheckpointIndex: 2,
+        guideValue: 0,
+      ),
+      greaterThan(0),
+    );
+  });
+
   testWidgets('headline is shown and centered in the header', (tester) async {
     await tester.binding.setSurfaceSize(const Size(900, 1280));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -295,78 +325,77 @@ void main() {
     gameState.dispose();
   });
 
-  testWidgets(
-    'stopping just outside the final dot rewinds by two guide dots',
-    (tester) async {
-      final repository = LetterRepository();
-      final c = repository.getByCharacter('C');
-      final audioService = RecordingAudioService();
-      final gameState = FingerTracingState(
-        letterRepository: repository,
-        letterSequence: [c],
-      );
+  testWidgets('stopping just outside the final dot rewinds by two guide dots', (
+    tester,
+  ) async {
+    final repository = LetterRepository();
+    final c = repository.getByCharacter('C');
+    final audioService = RecordingAudioService();
+    final gameState = FingerTracingState(
+      letterRepository: repository,
+      letterSequence: [c],
+    );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: FingerTracingScreen(
-            letterRepository: repository,
-            audioService: audioService,
-            gameState: gameState,
-            gameAudio: RecordingFingerTracingAudio(),
-          ),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FingerTracingScreen(
+          letterRepository: repository,
+          audioService: audioService,
+          gameState: gameState,
+          gameAudio: RecordingFingerTracingAudio(),
         ),
-      );
-      await tester.pump();
-      await tester.pump();
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
 
-      final board = find.byKey(const ValueKey('finger-tracing-board'));
-      final topLeft = tester.getTopLeft(board);
-      final size = tester.getSize(board);
-      final layout = FingerTracingGuides.layoutFor('C', size);
-      final stroke = layout.strokes.single;
-      expect(stroke.checkpoints.length, greaterThan(6));
-      final previousCheckpoint =
-          stroke.checkpoints[stroke.checkpoints.length - 2];
-      final lastCheckpoint = stroke.checkpoints.last;
-      final direction = lastCheckpoint - previousCheckpoint;
-      final directionLength = direction.distance;
-      final unitDirection = Offset(
-        direction.dx / directionLength,
-        direction.dy / directionLength,
-      );
-      final almostFinalPoint =
-          lastCheckpoint - (unitDirection * (layout.hitRadius + 1));
+    final board = find.byKey(const ValueKey('finger-tracing-board'));
+    final topLeft = tester.getTopLeft(board);
+    final size = tester.getSize(board);
+    final layout = FingerTracingGuides.layoutFor('C', size);
+    final stroke = layout.strokes.single;
+    expect(stroke.checkpoints.length, greaterThan(6));
+    final previousCheckpoint =
+        stroke.checkpoints[stroke.checkpoints.length - 2];
+    final lastCheckpoint = stroke.checkpoints.last;
+    final direction = lastCheckpoint - previousCheckpoint;
+    final directionLength = direction.distance;
+    final unitDirection = Offset(
+      direction.dx / directionLength,
+      direction.dy / directionLength,
+    );
+    final almostFinalPoint =
+        lastCheckpoint - (unitDirection * (layout.hitRadius + 1));
 
-      final gesture = await tester.startGesture(topLeft + stroke.startDot);
-      await tester.pump();
-      for (final checkpoint
-          in stroke.checkpoints.skip(1).take(stroke.checkpoints.length - 2)) {
-        await gesture.moveTo(topLeft + checkpoint);
-        await tester.pump(const Duration(milliseconds: 16));
-      }
-      await gesture.moveTo(topLeft + almostFinalPoint);
+    final gesture = await tester.startGesture(topLeft + stroke.startDot);
+    await tester.pump();
+    for (final checkpoint
+        in stroke.checkpoints.skip(1).take(stroke.checkpoints.length - 2)) {
+      await gesture.moveTo(topLeft + checkpoint);
       await tester.pump(const Duration(milliseconds: 16));
-      await gesture.up();
-      await tester.pump();
+    }
+    await gesture.moveTo(topLeft + almostFinalPoint);
+    await tester.pump(const Duration(milliseconds: 16));
+    await gesture.up();
+    await tester.pump();
 
-      expect(
-        gameState.coverage,
-        closeTo(
-          (stroke.checkpoints.length - 3) / layout.checkpoints.length,
-          0.001,
-        ),
-      );
-      expect(gameState.showSuccess, isFalse);
-      expect(
-        find.byKey(const ValueKey('finger-tracing-success-letter')),
-        findsNothing,
-      );
+    expect(
+      gameState.coverage,
+      closeTo(
+        (stroke.checkpoints.length - 3) / layout.checkpoints.length,
+        0.001,
+      ),
+    );
+    expect(gameState.showSuccess, isFalse);
+    expect(
+      find.byKey(const ValueKey('finger-tracing-success-letter')),
+      findsNothing,
+    );
 
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump();
-      gameState.dispose();
-    },
-  );
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    gameState.dispose();
+  });
 
   testWidgets('straying off path late in a stroke rewinds by two guide dots', (
     tester,
@@ -598,6 +627,110 @@ void main() {
       gameState.dispose();
     },
   );
+
+  testWidgets('player can resume from an earlier covered part of the stroke', (
+    tester,
+  ) async {
+    final repository = LetterRepository();
+    final c = repository.getByCharacter('C');
+    final audioService = RecordingAudioService();
+    final gameState = FingerTracingState(
+      letterRepository: repository,
+      letterSequence: [c],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FingerTracingScreen(
+          letterRepository: repository,
+          audioService: audioService,
+          gameState: gameState,
+          gameAudio: RecordingFingerTracingAudio(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final board = find.byKey(const ValueKey('finger-tracing-board'));
+    final topLeft = tester.getTopLeft(board);
+    final size = tester.getSize(board);
+    final layout = FingerTracingGuides.layoutFor('C', size);
+    final stroke = layout.strokes.single;
+
+    expect(stroke.checkpoints.length, greaterThan(10));
+
+    final gesture = await tester.startGesture(topLeft + stroke.startDot);
+    await tester.pump();
+    const traversedDotCount = 10;
+    for (final checkpoint in stroke.checkpoints.skip(1).take(9)) {
+      await gesture.moveTo(topLeft + checkpoint);
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await gesture.up();
+    await tester.pump();
+
+    const retainedDotCount = traversedDotCount - 2;
+    expect(
+      gameState.coverage,
+      closeTo(retainedDotCount / layout.checkpoints.length, 0.001),
+    );
+
+    final earlierResumePoint = Offset.lerp(
+      stroke.checkpoints[3],
+      stroke.checkpoints[4],
+      0.5,
+    )!;
+    final resumeGesture = await tester.startGesture(
+      topLeft + earlierResumePoint,
+    );
+    await tester.pump();
+
+    expect(
+      gameState.coverage,
+      closeTo(retainedDotCount / layout.checkpoints.length, 0.001),
+    );
+
+    for (final checkpoint in stroke.checkpoints.skip(4).take(4)) {
+      await resumeGesture.moveTo(topLeft + checkpoint);
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    expect(
+      gameState.coverage,
+      closeTo(retainedDotCount / layout.checkpoints.length, 0.001),
+    );
+    final painterAtFrontier =
+        tester.widget<CustomPaint>(board).painter as dynamic;
+    expect(painterAtFrontier.strokes.length, 2);
+
+    for (final checkpoint in stroke.checkpoints.skip(retainedDotCount)) {
+      await resumeGesture.moveTo(topLeft + checkpoint);
+      await tester.pump(const Duration(milliseconds: 16));
+      break;
+    }
+
+    final painterPastFrontier =
+        tester.widget<CustomPaint>(board).painter as dynamic;
+    expect(painterPastFrontier.strokes.length, 2);
+
+    for (final checkpoint in stroke.checkpoints.skip(retainedDotCount + 1)) {
+      await resumeGesture.moveTo(topLeft + checkpoint);
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await resumeGesture.up();
+    await tester.pump();
+
+    expect(gameState.showSuccess, isTrue);
+    expect(gameState.coverage, greaterThanOrEqualTo(0.85));
+
+    await tester.pump(FingerTracingState.nextLetterDelay);
+    await tester.pump();
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    gameState.dispose();
+  });
 
   testWidgets(
     'screen does not celebrate until the final checkpoint is reached',
